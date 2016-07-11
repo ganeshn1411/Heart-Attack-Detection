@@ -1,2157 +1,1381 @@
+server <- function(input, output, session) {
 
-
-  #The server function is used to define the fuctions for the UI defined above. It contains a input and out parameter to
-  #define what should be sent in and out of the UI and the session variable to keep track of what tabs are clicked.
-  server <- function(input, output, session) {
-  ischeck <- reactive({
-    b <- input$bar()
-  })
-  #Used to read the patient data
-  patdata <- reactive({
-    if (is.null(input$file1))
+  ##################################################################################################
+  # functions called in the viewData Page
+  ##################################################################################################
+  
+  # function to read the input file and store it (reactive will store data just like global variables)
+  getinputData <- reactive({
+    if(is.null(input$fileInput)){
       return(NULL)
-    infile1 <- input$file1
-    #Read dataset
-    a <- read.csv(infile1$datapath,stringsAsFactors = FALSE)
-    n1 = nrow(a);
-    st2 = as.data.frame(c(1:n1));
-    a <- cbind(st2,a)
-    colnames(a)[1] <- "Patient_ID"
-    a[nrow(a) + 1,] <- 0
-    #Check if arity is less than 2. If yes, use a value of 1 else 9
-    for (i in 1:ncol(a)) {
-      if (length(unique(a[,i])) < 3) {
-        a[nrow(a),i] <- 1
-      }
-      else{
-        a[nrow(a),i] <- 0
-      }
     }
-    a
+    inputFile <- input$fileInput
+    inputData <- read.csv(inputFile$datapath,stringsAsFactors = FALSE)
+    inputData
   })
-  
-  #Used to calculate the coordinates and the sizes of anchors
-  anch1 <- reactive({
-    values <- patdata()
-    values <- values[,-1]
-    values <- values[-nrow(values),]
-    maincolnames <-  colnames(values)
-    #Select the columns we re interested in
-    #subs=c(7,9:12,15:16,22:27,29,32,34:37,39:41)
-    #Create a vector containing numbers from 1 to the number of patients
-    n1 = nrow(values);
-    st2 = as.data.frame(c(1:n1));
-    s <- st2[,1]
-    #data = t2_all = data fraame version of original data set
-    t2_all = values
-    data = t2_all
-    #Load the scale cat file
-    
-    #Obtain a subset of the data
-    #data=cbind(as.data.frame(s),t2_all)
-    data <- data[,1:(ncol(data) - 1)]
-    #Seperate the risk variable only
-    risk = t2_all[,ncol(t2_all)]
-    #Create a data frame version of data called data_all and write it to a file
-    data_all = as.data.frame(data)
-    #Scale the file
-    data_all = scale(data_all)
-    
-    p = data_all
-    for (x in c(1:length(colnames(p)))) {
-      colnames(p)[x] = paste('a',colnames(p)[x], sep = '')
-    }
-    for (x in 1:length(p)) {
-      p[x] = sqrt(abs(p[x]))
-    }
-    for (x in 1:length(p[,1])) {
-      max = max(p[x,]); for (y in 1:length(p[1,])) {
-        p[x,y] = p[x,y] / max;
-      }
-    }
-    
-    #Perform pca and lda
-    prc3 = prcomp(data_all, center = FALSE, scale. = FALSE, retx = TRUE)
-    classif = lda(data_all, as.matrix(risk))
-    lda_pc_rot = cbind((prc3$rotation[,1]), classif$scaling)
-
-    #Get the anchor data ready
-    ancAng = as.data.frame(atan(classif$scaling / prc3$rotation[,1]))
-    ancAng[,2] <- rownames(ancAng)
-    colnames(ancAng) <- c("ancAng","Names")
-    rownames(ancAng) <- NULL
-    ancCoords = cbind(7 * sign(prc3$rotation[,1]) * abs(cos(ancAng[,1])),7 * sign(classif$scaling) * abs(sin(ancAng[,1])))
-    test1 <- as.data.frame(8.5 * sign(prc3$rotation[,1]) * abs(cos(ancAng[,1])))
-    rownames(test1) <- NULL
-    colnames(test1) <- 'coord1'
-    test2 <-
-      as.data.frame(18 * sign(classif$scaling) * abs(sin(ancAng[,1])))
-    rownames(test2) <- NULL
-    colnames(test2) <- 'coord2'
-    test3 <- as.data.frame(cbind(test1,test2))
-    ancCoords <- cbind(test1,test2)
-    
-    anchSize = as.data.frame(sqrt(diag(lda_pc_rot %*% t(lda_pc_rot))))
-    anchSize <- anchSize / 200
-    rownames(anchSize) <- NULL
-    colnames(anchSize) <- 'anchSize'
-    
-    anch <- as.data.frame(cbind(ancAng,ancCoords,anchSize))
-    anch <- anch[-1,]
-    anch
-    
-  })
-  
-  #To calculate the   coordiinates of indicidual patients based on the risk factor.
-  flex1 <- reactive({
-    values <- patdata()
-    values <- values[,-1]
-    values <- values[-nrow(values),]
-    maincolnames = colnames(values)
-    maincolnames <- maincolnames[-1]
-    #Create a vector containing numbers from 1 to the number of patients
-    n1 = nrow(values);
-    st2 = as.data.frame(c(1:n1));
-    s <- st2[,1]
-    #data = t2_all = data fraame version of original data set
-    t2_all = values
-    data = t2_all
-    #Load the scale cat file
-    #Obtain a subset of the data
-    data <- data[,1:(ncol(data) - 1)]
-    #Seperate the risk variable only
-    risk = t2_all[,ncol(t2_all)]
-    
-    #Create a data frame version of data called data_all and write it to a file
-    data_all = as.data.frame(data)
-    
-    #Scale the file
-    data_all = scale(data_all)
-    p = data_all
-    for (x in c(1:length(colnames(p)))) {
-      colnames(p)[x] = paste('a',colnames(p)[x], sep = '')
-    }
-    for (x in 1:length(p)) {
-      p[x] = sqrt(abs(p[x]))
-    }
-    for (x in 1:length(p[,1])) {
-      max = max(p[x,]); for (y in 1:length(p[1,])) {
-        p[x,y] = p[x,y] / max;
-      }
-    }
-    
-    #Perform pca and lda
-    prc3 = prcomp(data_all, center = FALSE, scale. = FALSE, retx = TRUE)
-    classif = lda(data_all, as.matrix(risk))
-    lda_pc_rot = cbind((prc3$rotation[,1]), classif$scaling)
-    
-    rot_x = as.matrix(data_all) %*% lda_pc_rot
-    colnames_data = data.frame(colnames(data_all))
-    ID = s
-    
-    rot_x <- as.data.frame(rot_x)
-    patdat <- patdata()
-    actual <- patdat[,ncol(patdat)]
-    actual <- unlist(actual)
-    actual <- actual[-length(actual)]
-    maxthresh <- 0
-    thresh <- -0.5
-    thresholds <- c(-0.5,-0.25,0,0.25,0.5,0.75,1)
-    for(i in 1:length(thresholds)){
-      cutoff <- thresholds[i]
-      count <- 0
-      for(j in 1:length(actual)){
-        if(rot_x[j,2]>cutoff){
-          if(actual[j]==1){
-            count <- count + 1;
-          }
-        }
-        else{
-          if(actual[j]==0){
-            count <- count + 1;
-          }
-        }
-      }
-      if(count > maxthresh){
-        maxthresh <- count
-        thresh <- thresholds[i]
-      }
-    }
-    
-    rot_x[,1] <- (rot_x[,1] * 1.2) + 1
-    rot_x[,2] <- (rot_x[,2] * 2.5) - (thresh*2.5)
-    
-    test_ID <- ID
-    test_data <- data
-    test_p <- p
-    test_rot <- rot_x
-    flex <- as.data.frame(cbind(ID,data,p,rot_x))
-    flex
-  })
-  
-  #Read the input from the vital variable checkbox
-  vital <- reactive({
-    Monitored_variables <- input$columns1
-    Monitored_variables <-as.data.frame(Monitored_variables, stringsAsFactors = FALSE)
-  })
-  
-  #Read the input from the editable variable checkbox
-  edit <- reactive({
-    Modifiable_variables <- input$columns2
-    Modifiable_variables <- as.data.frame(Modifiable_variables, stringsAsFactors = FALSE)
-  })
-  
-  #Select only those users who have a risk above the value specified by the slider.
-  slide <- reactive({
-    sflex <- flex1()
-    #Get the input size
-    siz1 <- input$size
-    maxy <- nrow(sflex)
-    #Sort the rows
-    sflex <- sflex[order(sflex[,ncol(sflex)]),]
-    sper <- (siz1 * maxy) / 100
-    #Take a subset
-    flexsub <- sflex[-(1:sper),]
-    flexsub
-  })
-  
-  #Select only those users who have a risk above the value specified by the slider.
-  slideStatic <- function(){
-    sflex <- flex1()
-    #Get the input size
-    #siz1 <- input$size
-    maxy <- nrow(sflex)
-    #Sort the rows
-    sflex <- sflex[order(sflex[,ncol(sflex)]),]
-    sper <- maxy / 100
-    #Take a subset
-    flexsub <- sflex[-(1:sper),]
-    return(flexsub)
-  }
-  
-  slide2 <- reactive({
-    siz2 <- input$size
-    siz2
-  })
-  
-  #Get the input for the final values in the intervention page
-  df <- eventReactive(input$patint, {
-    edi2 <- edit()
-    allv <- c(edi2[,1])
-    a12 <- unique(allv)
-
-    temp1 <- patdata()
-    temp1 <- temp1[,-1]
-    temp2 <- subset(temp1,select = a12)
-
-    final3 <- data.frame(Ideal = character(),stringsAsFactors = FALSE)
-    
-    for (i in 1:ncol(temp2)) {
-      if (temp2[nrow(temp2),i] == 0) {
-        eval(parse(text = paste("final3[",i,",1] <- input$finedit1_",i,sep = "")))
-      }
-      if (temp2[nrow(temp2),i] == 1) {
-        eval(parse(text = paste("if(input$finedit2_",i," == 1){final3[",i,",1] <- '1'} else{final3[",i,",1] <- '0'}",sep = "")))
-      }
-    }
-    final9 <- final3
-  })
-  
-  #Output the graph to show the change in risk value graph
-  output$contents3 <- renderGvis({
-    tv <- flex1()
-    tvt <- patdata()
-    tvt <- tvt[,-1]
-    tvt <- tvt[-nrow(tvt),]
-    
-    edi2 <- edit()
-    if(length(edi2)==0){
-      textOutput("")
-    }
-    else{
-    allv <- c(edi2[,1])
-    a12 <- unique(allv)
-    
-    edf <- a12
-    cc <- df()
-    pno3 <- patientIDInspect()
-    
-    temp6 <- patdata()
-    temp7 <- subset(temp6,select = a12)
-    for (i in 1:length(edf)) {
-      cc[i,2] <- edf[i]
-    }
-    colnames(cc)[2] <- 'variable'
-    cc <- cc[c(2,1)]
-    
-    cc[,2] <- as.numeric(cc[,2])
-    
-    tv2 <- tv[,c(1:23)]
-    tv3 <- subset(tv2,tv2$ID == pno3)
-    tvt2 <- subset(
-      tvt,(
-        tvt$Gender == tv3$Gender &
-          tvt$SBP == tv3$SBP &
-          tvt$DBP == tv3$DBP &
-          tvt$LDL == tv3$LDL &
-          tvt$HDL == tv3$HDL &
-          tvt$LastA1C == tv3$LastA1C &
-          tvt$Family_CVD == tv3$Family_CVD &
-          tvt$Smoker == tv3$Smoker &
-          tvt$BMI == tv3$BMI &
-          tvt$Age == tv3$Age &
-          tvt$Family_History_Diabetes == tv3$Family_History_Diabetes &
-          tvt$Albuminuria == tv3$Albuminuria &
-          tvt$Retinopathy == tv3$Retinopathy &
-          tvt$CHF == tv3$CHF &
-          tvt$Bypass == tv3$Bypass &
-          tvt$Aspirin == tv3$Aspirin &
-          tvt$Antihyper == tv3$Antihyper &
-          tvt$Glycemic == tv3$Glycemic &
-          tvt$Antilipemic == tv3$Antilipemic &
-          tvt$Angina == tv3$Angina &
-          tvt$Angioplasty == tv3$Angioplasty
-      )
-    )
-    tvt3 <- rbind(tvt,tvt2)
-    
-    for (i in 1:ncol(tvt3)) {
-      if (colnames(tvt3)[i] %in% cc[,1]) {
-        n <- which(cc[,1] == colnames(tvt3)[i])
-        tvt3[nrow(tvt3),i] <- cc[n,2]
-      }
-    }
-    values <- tvt3
-    maincolnames = colnames(values);
-    #Create a vector containing numbers from 1 to the number of patients
-    n1 = nrow(values);
-    st2 = as.data.frame(c(1:n1));
-    s <- st2[,1]
-    #data = t2_all = data fraame version of original data set
-    t2_all = values
-    data = t2_all
-    #Load the scale cat file
-    
-    #Obtain a subset of the data
-    #data=cbind(as.data.frame(s),t2_all)
-    data <- data[,1:(ncol(data) - 1)]
-    #Seperate the risk variable only
-    risk = t2_all[,ncol(t2_all)]
-    
-    #Create a data frame version of data called data_all and write it to a file
-    data_all = as.data.frame(data)
-    
-    #Scale the file
-    data_all = scale(data_all)
-    p = data_all
-    for (x in c(1:length(colnames(p)))) {
-      colnames(p)[x] = paste('a',colnames(p)[x], sep = '')
-    }
-    for (x in 1:length(p)) {
-      p[x] = sqrt(abs(p[x]))
-    }
-    for (x in 1:length(p[,1])) {
-      max = max(p[x,]); for (y in 1:length(p[1,])) {
-        p[x,y] = p[x,y] / max;
-      }
-    }
-    #Perform pca and lda
-    prc3 = prcomp(data_all, center = FALSE, scale. = FALSE, retx = TRUE)
-    classif = lda(data_all, as.matrix(risk))
-    lda_pc_rot = cbind((prc3$rotation[,1]), classif$scaling)
-    
-    rot_x = as.matrix(data_all) %*% lda_pc_rot
-    colnames_data = data.frame(colnames(data_all))
-    ID = s
-    
-    flex234 <- as.data.frame(cbind(ID,data,p,rot_x))
-    tv7 <- subset(tv,tv$ID == pno3)
-    tv5 <- tv7[,c(ncol(tv7) - 1,ncol(tv7))]
-    colnames(tv5)[1] <- "x"
-    colnames(tv5)[2] <- "y"
-    tv6 <- flex234[nrow(flex234),c(ncol(flex234) - 1,ncol(flex234))]
-    colnames(tv6)[1] <- "x"
-    colnames(tv6)[2] <- "y"
-    
-    ttt <- rbind(tv5,tv6)
-    ttt[1,3] <- "Old"
-    ttt[1,4] <- "Old Value"
-    ttt[2,3] <- "New"
-    ttt[2,4] <- "New Value"
-    
-    colnames(ttt)[3] <- "ID"
-    colnames(ttt)[4] <- "color"
-    ttt$size <- 0.001
-    ttt <- ttt[c(3,1,2,5,4)]
-    tv9 <- subset(tv3,select = a12)
-    tv9 <- as.data.frame(t(tv9))
-    tv8 <- tv9
-    tv8$atype <- c(rep("Modifiable Anchors",nrow(tv8)))
-    tv8$var <- rownames(tv8)
-    anch2 <- anch1()
-    
-    temp22 <- anch2
-    temp22 <- temp22[,-1]
-    colnames(temp22)[1] <- "ID"
-    colnames(temp22)[2] <- "x"
-    colnames(temp22)[3] <- "y"
-    colnames(temp22)[4] <- "size"
-    temp22[,5] <- 'Anchors'
-    colnames(temp22)[5] <- "color"
-    
-    temp33 <- temp22
-    tv9 <- tv8
-    
-    for (i in 1:nrow(temp33)) {
-      if (temp33$ID[i] %in% tv9[,3]) {
-        n <- which(tv9[,3] == temp33$ID[i])
-        temp33$color[i] <- tv9[n,2]
-      }
-    }
-    
-    temp44 <- temp33
-    ttt2 <<- rbind(ttt,temp44)
-    for(i in 1:nrow(ttt2)){
-      ttt2[i,2] <- -1 * ttt2[i,2]
-    }
-    if(ttt2[ttt2$ID=='Old',3]<ttt2[ttt2$ID=='New',3]){
-      ttt2[ttt2$ID=='New',3] <- ttt2[ttt2$ID=='New',3] - 2*(ttt2[ttt2$ID=='New',3] - ttt2[ttt2$ID=='Old',3])
-    }
-    ttt2 <- ttt2[order(ttt2$color),]
-          bub <- gvisBubbleChart(ttt2, idvar="ID",
-                              xvar="x", yvar="y",sizevar = "size", colorvar = "color",
-                              options=list(
-                                width=800, height=500,
-                                colors="['#819FF7','#FE642E','#006600','#CC0000']"))
-bub  }})
-  
-  #The output text in the intervention view page
-  output$pid <- renderText({
-    pno <- patientIDInspect()
-    paste("Patient No. : ",pno,sep = " ")
-  })
-  
   
   #Display the content to the view data page
-  output$contents2 <- renderDataTable({
-    data2 <- patdata()
-    data2 <- data2[-nrow(data2),-1]
-    data2
-  }, options = list(scrollX = TRUE,pageLength = 10))
-  
-  #Input checkboxes to choose vital variables
-  output$choose_columns1 <- renderUI({
-    data <- patdata()
-    data <- data[,-1]
-    data <- data[-nrow(data),]
-    colnames <- names(data[,-ncol(data)])
-    colnames <- colnames[-1]
-    checkboxGroupInput("columns1", "Choose columns", choices  = colnames)
+  output$inputData <- renderDataTable({
+    inputContents <- getinputData()
+    output <- datatable(inputContents,class = 'cell-border stripe',options = list(scrollX = TRUE,lengthChange = FALSE,searching = FALSE,
+                                                                                  initComplete = JS("function(settings, json) {",
+                                                                                    "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});","}")))
   })
   
-  #Input checkboxes to choose editable variables
-  output$choose_columns2 <- renderUI({
-    data <- patdata()
-    data <- data[,-1]
-    data <- data[-nrow(data),]
-    colnames <- names(data[,-ncol(data)])
-    colnames <- colnames[-1]
-    checkboxGroupInput("columns2", "Choose columns", choices  = colnames)
+  ######################################################################################################
+  # functions called in the Data Summary Page
+  ######################################################################################################
+  
+  # Display a datatable showing different numeric summary metrics
+  output$numericSummary <- renderDataTable({
+    inputData <- getinputData()
+    # remove the ID column
+    inputData <- inputData[,-1]
+    numericSummary <- getNumericSummary(inputData)
+    output <- datatable(numericSummary,class = 'cell-border stripe',options=list(paging = FALSE,searching = FALSE,
+                                                                                 initComplete = JS("function(settings, json) {",
+                                                                                   "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});","}")))
   })
   
-  #Input checkboxes to choose editable variables
-  output$choose_columns3 <- renderUI({
-    data <- patdata()
-    data <- data[,-1]
-    data <- data[-nrow(data),]
-    colnames <- names(data[,])
-    colnames <- colnames[-1]
-    colnames <- rev(colnames)
-    selectInput("columns3", "Choose Output Column", colnames)
+  # Display a datatable showing different categorical summary metrics
+  output$categoricSummary <- renderDataTable({
+    inputData <- getinputData()
+    categoricSummary <- getCategoricSummary(inputData)
+    output <- datatable(categoricSummary,class = 'cell-border stripe',options=list(paging = FALSE,searching = FALSE,
+                                                                                   initComplete = JS("function(settings, json) {","$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});","}")))
   })
   
-  output$outputColumn <- renderText({
-    colSelected <- outputColSelection()
-    patdat <- patdata()
-    patdat1 <- patdat
-    patdat <- patdat[!names(patdat) %in% colSelected]
-    patdat1 <- patdat1[names(patdat1) %in% colSelected]
-    patdat <- cbind(patdat,patdat1)
-    colnames(patdat)[ncol(patdat)] <- colSelected
-    colOutput <- paste("Current Output Column : ",colSelected)
-  })
-  
-  
-  #Table to display the selected vital variables
-  output$vital_v <- renderDataTable({
-    data1 <- vital()
-  }, options = list(
-    pageLength = 10,searching = FALSE,paging = FALSE
-  ))
-  
-  #Table to display the selected editable variables
-  output$edit_v <- renderDataTable({
-    data2 <- edit()
-  }, options = list(
-    pageLength = 25,searching = FALSE,paging = FALSE
-  ))
-  
-  #The text boxes in select column page to input the ideal values
-  output$textbox <- renderUI({
-    # only monitored get thhreshold
-    vit2 <- vital()
-    if (nrow(vit2) == 0) {
-      bc <- textOutput("Please select vital/editable columns")
-    } 
-    else{
-      allv <- vit2[,1]
-      allv <- unique(allv)
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      temp2 <- subset(temp1,select = allv)
-      temp3 <- as.data.frame(temp2[nrow(temp2),])
-      if (ncol(temp3) == 1) {
-        colnames(temp3)[1] <- colnames(temp2)[1]
-      }
-      temp2 <- temp3
-      
-      bc <- lapply(1:ncol(temp2), function(i) {
-        if (temp2[1,i] == 0) {
-          numericInput(paste("ideal1",i,sep = "_"), label = paste("Minumum ",colnames(temp2)[i]), value = temp2[1,i],min = 0,max = 100000000)
-        }
-      })
-    } 
-    bc
-  })
-  
-  #The text boxes in select column page to input the ideal values
-  output$textbox2 <- renderUI({
-    # only monitored get threshold
-    vit3 <- vital()
-    if (nrow(vit3) == 0) {
-      bc <- textOutput(" ")
-    } 
-    else{
-      allv <- vit3[,1]
-      allv <- unique(allv)
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      temp2 <- subset(temp1,select = allv)
-      temp3 <- as.data.frame(temp2[nrow(temp2),])
-      if (ncol(temp3) == 1) {
-        colnames(temp3)[1] <- colnames(temp2)[1]
-      }
-      temp2 <- temp3
-      
-      bc <- lapply(1:ncol(temp2), function(i) {
-        if(temp2[1,i] != 0){
-        selectInput(paste("ideal2",i,sep = "_"), label = colnames(temp2)[i], choices = list("Yes" = 1, "No" = 2),selected = 1)
-        }
-      })
-    } 
-    bc
-  })
-  
-  
-  #The text boxes in select column page to input the ideal values
-  output$textbox1 <- renderUI({
-    # only monitored get thhreshold
-    vit <- vital()
-    if (nrow(vit) == 0) {
-      bc <- textOutput("")
-    } 
-    else{
-    allv <- unique(vit[,1])
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      temp2 <- subset(temp1,select = allv)
-      temp3 <- as.data.frame(temp2[nrow(temp2),])
-      if (ncol(temp3) == 1) {
-        colnames(temp3)[1] <- colnames(temp2)[1]
-      }
-      temp2 <- temp3
-      
-      bc <- lapply(1:ncol(temp2), function(i) {
-        if (temp2[1,i] == 0) {
-          numericInput(paste("ideal3",i,sep = "_"), label = paste("Maximum ",colnames(temp2)[i]), value = temp2[1,i],min = 0,max = 100000000)
-        }
-      })
-    }
-    bc
-  })
-  
-  
-  #Action button event
-  observeEvent(input$introload, {
-    newtab1 <- switch(input$tabs,
-                      "introduction" = "load",
-                      "load" = "introduction")
-    updateTabItems(session,"tabs", newtab1)
-  })
-  
-  observeEvent(input$corpop1, {
-    newtab1 <- switch(input$tabs,
-                      "cor" = "pop",
-                      "pop" = "cor")
-    updateTabItems(session,"tabs", newtab1)
-  })
-  
-  
-  observeEvent(input$corpop2, {
-    newtab1 <- switch(input$tabs,
-                      "cor" = "pop",
-                      "pop" = "cor")
-    updateTabItems(session,"tabs", newtab1)
-  })
-  
-  
-  #Action button event
-  observeEvent(input$loadview, {
-    newtab2 <- switch(input$tabs,
-                      "load" = "view",
-                      "view" = "load")
-    updateTabItems(session,"tabs", newtab2)
-  })
-  
-  
-  #Action button event
-  observeEvent(input$datasummaryview, {
-    newtab5 <- switch(input$tabs,
-                      "summ" = "view",
-                      "view" = "summ")
-    updateTabItems(session,"tabs", newtab5)
-  })
-  
-  #Action button event
-  observeEvent(input$exploreview, {
-    newtab5 <- switch(input$tabs,
-                      "explore" = "summ",
-                      "summ" = "explore")
-    updateTabItems(session,"tabs", newtab5)
-  })
-  
-  #Action button event
-  observeEvent(input$viewselcol, {
-    newtab3 <- switch(input$tabs,
-                      "selcol" = "view",
-                      "view" = "selcol")
-    updateTabItems(session,"tabs", newtab3)
-  })
-  
-  observeEvent(input$viewselcol1, {
-    newtab3 <- switch(input$tabs,
-                      "selcol" = "explore",
-                      "explore" = "selcol")
-    updateTabItems(session,"tabs", newtab3)
-  })
-  
-  #Action button event
-  observeEvent(input$proc, {
-    newtab1 <- switch(input$tabs,
-                      "selcol" = "selact",
-                      "selact" = "selcol")
-    updateTabItems(session, "tabs", newtab1)
-  })
-  
-  #Action button event
-  observeEvent(input$pop1, {
-    newtab <- switch(input$tabs,
-                     "selcol" = "pop",
-                     "pop" = "selcol")
-    
-    updateTabItems(session, "tabs", newtab)
-  })
-  
-  #Action button event
-  observeEvent(input$cor1, {
-    newtab <- switch(input$tabs,
-                     "selcol" = "cor",
-                     "cor" = "selcol")
-    
-    updateTabItems(session, "tabs", newtab)
-  })
-  
-  #Action button event
-  observeEvent(input$patient1, {
-    newtab <- switch(input$tabs,
-                     "selcol" = "pat",
-                     "pat" = "selcol")
-    t1 <<- 1
-    t2 <<- 0
-    updateTabItems(session, "tabs", newtab)
-  })
-  
-  #Action button event
-  observeEvent(input$patient2, {
-    newtab <- switch(input$tabs,
-                     "pop" = "clu",
-                     "clu" = "pop")
-    t1 <<- 1
-    t2 <<- 0
-    updateTabItems(session, "tabs", newtab)
-  })
-  
-  
-  #Action button event
-  observeEvent(input$patient5, {
-    newtab <- switch(input$tabs,
-                     "clu" = "pat",
-                     "pat" = "clu")
-    updateTabItems(session, "tabs", newtab)
-  })
-  
-  
-  #Action button event
-  observeEvent(input$patient4, {
-    newtab <- switch(input$tabs,
-                     "int" = "pred",
-                     "pred" = "int")
-    updateTabItems(session, "tabs", newtab)
-  })
-  
-  
-  #Action button event
-  observeEvent(input$patient3, {
-    newtab <- switch(input$tabs,
-                     "int" = "pat",
-                     "pat" = "int")
-    updateTabItems(session, "tabs", newtab)
-  })
-  
-  
-  #Infobox to show all of patients values
-  output$allpat <- renderUI({
-    if (t1 == 1 & t2 == 0) {
-      pno <- input$patient_text1
-    }
-    if (t1 == 0  & t2 == 1) {
-      pno <- input$patient_text2
-    }
-    if (t1 == 1  & t2 == 1) {
-      pno <- input$patient_text4
-    }
-    
-    vit2 <- vital()
-    edi2 <- edit()
-    
-    if (nrow(vit2) == 0 & nrow(edi2) == 0) {
-      bc <- textOutput("Please select vital/editable columns")
-      
-    } else if (nrow(edi2) == 0 & nrow(vit2) != 0) {
-      temp1 <- flex1()
-      temp2 <- subset(temp1,temp1[1] == pno)
-      a
-      allv <- c("ID",vit2[,1])
-      allv <- unique(allv)
-      
-      temp2 <- subset(temp2,select = allv)
-      lapply(1:ncol(temp2), function(i) {
-        infoBox(
-          colnames(temp2)[i], temp2[1,i],width = 3, color = "blue",fill = TRUE
-        )
-      })
-      
-    } else if (nrow(vit2) == 0 & nrow(edi2) != 0) {
-      temp1 <- flex1()
-      temp2 <- subset(temp1,temp1[1] == pno)
-      
-      allv <- c("ID",edi2[,1])
-      allv <- unique(allv)
-      
-      temp2 <- subset(temp2,select = allv)
-      lapply(1:ncol(temp2), function(i) {
-        infoBox(
-          colnames(temp2)[i], temp2[1,i],width = 3, color = "blue",fill = TRUE
-        )
-      })
-      
-    } else{
-      temp1 <- flex1()
-      temp2 <- subset(temp1,temp1[1] == pno)
-      
-      allv <- c("ID",vit2[,1],edi2[,1])
-      allv <- unique(allv)
-      
-      temp2 <- subset(temp2,select = allv)
-      lapply(1:ncol(temp2), function(i) {
-        infoBox(
-          colnames(temp2)[i], temp2[1,i],width = 3, color = "blue",fill = TRUE
-        )
-      })
-      
-    }
-  })
-  
-  
-  patientlist <- function(){
-    temp1 <- slideStatic()
-    siz <- 1
-    anch2 <- anch1()
-    temp11 <- temp1[,c(1,ncol(temp1) - 1,ncol(temp1))]
-    temp11[,4] <- 0.1
-    colnames(temp11)[1] <- "ID"
-    colnames(temp11)[2] <- "x"
-    colnames(temp11)[3] <- "y"
-    colnames(temp11)[4] <- "size"
-    temp11$size <- temp11$size / 100000000
-
-    temp22 <- anch2
-    temp22 <- temp22[,-1]
-    colnames(temp22)[1] <- "ID"
-    colnames(temp22)[2] <- "x"
-    colnames(temp22)[3] <- "y"
-    colnames(temp22)[4] <- "size"
-
-    temp11$x <- as.numeric(as.character(temp11$x))
-    temp11$y <- as.numeric(as.character(temp11$y))
-    
-    temp22$x <- as.numeric(as.character(temp22$x))
-    temp22$y <- as.numeric(as.character(temp22$y))
-
-    Bx <- as.numeric(temp22[2,2])
-    By <- as.numeric(temp22[3,2])
-    funlist <- apply(temp11,1,function(x)custDist(x[2],x[3],Bx,By))
-    funlistmain <- data.frame(funlist)
-    
-    for(i in 2:nrow(temp22)){
-      Bx <- temp22[i,2]
-      By <- temp22[i,3]
-      funlistnew <- apply(temp11,1,function(x)custDist(x[2],x[3],Bx,By))
-      funlistmain <- cbind(funlistmain,funlistnew)
-    }
-    colnames(funlistmain) <- temp22$ID
-    minCol <- apply(funlistmain,1,which.min)
-    minCol <- mapvalues(minCol,1:length(temp22$ID),temp22$ID)
-    temp11 <- cbind(temp11,minCol)
-    return(temp11)
-  }
-  
-  custDist <- function(x,y,Bx,By){
-    cal <- sqrt((x-Bx)*(x-Bx) + (y-By)*(y-By))
-    if(!is.numeric(cal)){
-      return(100)
-    }
-    else{
-      return(cal)
-    }
-  }
-  
-  
-  
-  patientID <- reactive({
-    patientIDSelected <- input$patient_text5
-  })
-  
-  patientIDInspect <- reactive({
-    patientIDInspectSelected <- input$patient_text6
-  })
-  
-  csel1 <- reactive({
-    sel1_variables <- input$sel1
-  })
-  
-  csel2 <- reactive({
-    sel2_variables <- input$sel2
-  })
-  
-  csel3 <- reactive({
-    sel3_variables <- input$sel3
-  })
-  
-  algoSelection <- reactive({
-    algoforSelection <- input$algoSelect
-  })
-  
-  
-  outputColSelection <- reactive({
-    col3Selected <- input$columns3
-  })
-  
-  
-  
-  
-  #Function for logistic regression
-  get_pred_logreg <- function(train,test) {
-    nf <- ncol(test)#Finds out the number of columns in the test set
-    strfunc <-
-      paste(names(train)[nf],"~.",sep = "") # we assume the label to be in the lastcolumn
-    func <- as.formula(strfunc)
-    mylogit <-
-      glm(func, data = train, family = binomial)#Creates the model
-    ntrain <- test[,-nf]#Creates the test set(newdata)
-    pred1 <- NULL
-    pred <-
-      predict(mylogit,newdata = ntrain,type = 'response')#Creates the predicton values
-    final <-
-      cbind(test[,nf],as.data.frame(pred))#Binds it with the existing y values
-    return(final)
-  }
-  
-  
-  #Function for SVM
-  get_pred_svm <- function(train,test) {
-    nf <- ncol(test)#Finds out the number of columns in the test set
-    train[,nf] <- as.factor(train[,nf])
-    strfunc <-
-      paste(names(train)[nf],"~.",sep = "") # we assume the label to be in the last
-    func <- as.formula(strfunc)
-    model <-
-      svm(func, data = train, probability = TRUE)#building the model
-    nwine <- test[,-nf]
-    pred <-
-      predict(model, nwine,prob = TRUE)#Applying the model to the test set
-    pred1 <-
-      attr(pred, "probabilities")#extracting the probabilities for the prediction
-    pred2 <- as.data.frame(pred1)
-    pred2 <- pred2[,order(colnames(pred2))]
-    final <-
-      cbind(as.data.frame(pred2[,2]),test[,nf])#Constructing the final data frame
-    return(final)
-  }
-  
-  
-  #Function for randomForest
-  get_pred_rf <- function(train,test) {
-    
-    nf <- ncol(test)#Finds out the number of columns in the test set
-    train[,ncol(train)] <- as.factor(train[,ncol(train)])
-    test[,ncol(test)] <- as.factor(test[,ncol(test)])
-    strfunc <-
-      paste(names(train)[nf],"~.",sep = "") # we assume the label to be in the firstcolumn
-    func <- as.formula(strfunc)
-    classifier <- randomForest(func, data = train) #building the model
-    nf <- ncol(test)
-    nwine <- test[,-nf]
-    pred <-
-      predict(classifier, nwine,type = "prob")#applying the model to thetst set
-    pred2 <- as.data.frame(pred)
-    pred2 <- pred2[,order(colnames(pred2))]
-    final <-
-      cbind(as.data.frame(pred2[,2]),test[,nf])#binding the actual output and the prediction
-    return(final)
-  }
-  
-  
-  # naive bayes function
-  get_pred_nb <- function(train,test){
-    colnames(test)<-colnames(train)
-    nf <- ncol(train)
-    train.y<-colnames(train)[nf]
-    formula<-paste(train.y," ~. -", train.y)
-    # applying naive Bayes function on the training data
-    model <- naiveBayes(as.formula(formula), data = train,na.action=na.omit)
-    # predict to get the probabilities
-    pred <- predict(model, test,type = "raw")
-    # reorder the probability values by column names
-    pred <- pred[,order(colnames(pred))]
-    pred <- rbind(pred)
-    # extract the column with probabilities of 1
-    pred <- pred[,2]
-    outputdf <- data.frame(pred,test[nf])
-    colnames(outputdf) <- c("pred","true output")
-    return(outputdf)
-  }
-  
-  
-  # k-nearest neighbour function
-  get_pred_knn <- function(train,test,k){
-    colnames(test)<-colnames(train)
-    nf <- ncol(test)
-    # knn function to predict output
-    pred <- knn(train[,-nf],test[,-nf],cl=train[,nf],k,prob=TRUE)
-    pred.value <- as.vector(pred)
-    #extracting probabilities from output
-    pred <- attr(pred,"prob")
-    outputdf <- data.frame(pred,pred.value,test[nf])
-    # changing probabilities fro predicted values of 0
-    outputdf[,1]<- ifelse(outputdf[,2]==0, 1-outputdf[,1],outputdf[,1])
-    colnames(outputdf) <- c("pred","value","true_output")
-    outputdf <- subset(outputdf,select=c(pred,true_output))
-    return(outputdf)
-  }
-  
-  
-  
-
-  do_cv_class <-function(df,num_folds,model_name){
-    # sample function to randomize data
-    dfr <- df[sample(nrow(df)),]
-    icount <- nrow(df)%/%num_folds
-    j <- 1
-    result <- data.frame()
-    # check if patten matches with format of knn
-    if(length(grep("[0-9]nn",model_name))!=0){
-      #extract k from the input
-      k <- as.numeric(substr(model_name,1,1))
-      # call the knn function numfolds-1 times
-      for(i in 1:(num_folds-1)){
-        train <- data.frame(dfr[-(j:(j+icount-1)),])
-        test <- data.frame(dfr[j:(j+icount-1),])
-        j <- j + icount
-        gen.data <- get_pred_knn(train,test,k)
-        result <- rbind(result,gen.data)
-      }
-      # repeat the same thing for the remaining last set of elements (kth iteration)
-      train <- data.frame(dfr[-(j:nrow(df)),])
-      test <- data.frame(dfr[j:nrow(df),])
-      gen.data <- get_pred_knn(train,test,k)
-      result <- rbind(result,gen.data)
-    }
-    else{
-      #if input does not match knn, append get_pred_ to input name
-      model_name <- paste("get_pred_",model_name,sep="")
-      # loop numfolds-1 times
-      for(i in 1:(num_folds-1)){
-        train <- data.frame(dfr[-(j:(j+icount-1)),])
-        test <- data.frame(dfr[j:(j+icount-1),])
-        j <- j + icount
-        #call  the method to perform prediction 
-        gen.data <- do.call(model_name,list(train,test))
-        result <- rbind(result,gen.data)
-      }
-      # repeat the same thing for the remaining last set of elements (kth iteration)
-      train <- data.frame(dfr[-(j:nrow(df)),])
-      test <- data.frame(dfr[j:nrow(df),])
-      gen.data <- do.call(model_name,list(train,test))
-      result <- rbind(result,gen.data)
-    }
-    return(result)
-  }
-  
-  
-  get_metrics <- function(df,cutoff = 0.5){
-    #create a column of 1s and 0s based on cutoff values
-    colnames(df) <- c("pred","test")
-    df$pred<- ifelse(df$pred>= cutoff, 1,0)
-    # get the confusion matrix values
-    tpcount <- sum(df[,1]==0 & df[,2]==1)
-    fncount <- sum(df[,1]==1 & df[,2]==1)
-    fpcount <- sum(df[,1]==0 & df[,2]==0)
-    tncount <- sum(df[,1]==1 & df[,2]==0)
-    
-    pos <- tpcount + fncount
-    neg <- fpcount + tncount
-    
-    tpr <-  tpcount / pos
-    fpr <- fpcount / neg
-
-    accuracy <- (tpcount+tncount)/(pos+neg)
-    
-    precision <- tpcount/(tpcount + fpcount)
-    
-    recall <- tpr
-    
-    outputdf <- data.frame(tpr,fpr,accuracy,precision,recall)
-    acuuracy <- 1-unlist(outputdf[1,])
-    returndf <- data.frame(c("True Positive Rate","False Postitive Rate","Accuracy","Precision","Recall"),
-                           acuuracy)
-    colnames(returndf) <- c("Measure","Value")
-    return(returndf)
-  }
-  
-  
-  get_confusion_matrix <- function(df,cutoff = 0.5){
-    #create a column of 1s and 0s based on cutoff values
-    colnames(df) <- c("pred","test")
-    df$pred<- ifelse(df$pred>= cutoff, 1,0)
-    # get the confusion matrix values
-    tpcount <- sum(df[,1]==0 & df[,2]==1)
-    fncount <- sum(df[,1]==1 & df[,2]==1)
-    fpcount <- sum(df[,1]==0 & df[,2]==0)
-    tncount <- sum(df[,1]==1 & df[,2]==0)
-    
-    confMatrix <- data.frame(c("Predicted True","Predicted False"),
-                             c(tpcount,fncount),
-                            c(fpcount,tncount))
-    colnames(confMatrix) <- c("","Actually True","Actually False")
-  return(confMatrix)
-  }
-  
-  
-  
-  get_accuracy_comparisons <- function(){
-    output.dataframe <- data.frame(c("Linear Discriminant Analysis","Logistic Regression","Naive Bayes","k Nearest Neighbour","Support Vector Machine","Random Forest"),
-                                   c(0.82988685,0.907300566,0.8443534,0.892619466,0.9176906573,0.9066906573))
-    return(output.dataframe)
-  }
-  
-  
-  output$compareAcuuracyGraphs <- renderGvis({
-    outputTable <- get_accuracy_comparisons()
-    outputTable$Accuracy.style <- c("#FF4000","#0073B7","#FE642E","#FFFF00","#808080","#00FF00") 
-    colnames(outputTable) <- c("Model","Accuracy","Accuracy.style")
-    colGvis <- gvisColumnChart(outputTable,xvar = "Model",yvar = c("Accuracy","Accuracy.style"),
-                               options= list(height = 600,
-                                             width = 700,
-                                             legend = 'none',
-                                             title = "Comparison of Model Accuracy",
-                                             titleTextStyle = "{fontName:'Arial',fontSize:16}",
-                                             vAxes="[{title:'Accuracy', 
-                                             viewWindow:{min:0, max:1},
-                                             titleTextStyle : {fontName:'Arial'},
-                                             titleTextStyle : {fontSize:14}}]"))
-    colGvis
-  })
-  
-  
-  output$errorMetrics <- renderDataTable({
-    patdat <- patdata()
-    algoSelected <- algoSelection()
-    
-    if(algoSelected == 'Logistic Regression'){
-      pred.glm <- do_cv_class(patdat,10,"logreg")
-      pred.glm <- pred.glm[,c(2,1)]
-      glm.acc <- get_metrics(pred.glm,0.5)
-      ErrorMet <- glm.acc
-    }
-    
-    if(algoSelected == 'Support Vector Machines'){
-      pred.svm <- do_cv_class(patdat,10,"svm")
-      svm.acc <- get_metrics(pred.svm,0.5)
-      ErrorMet <- svm.acc
-    }
-
-    if(algoSelected == 'Naive Bayes'){
-      pred.nb <- do_cv_class(patdat,10,"nb")
-      nb.acc <- get_metrics(pred.nb,0.5)
-      ErrorMet <- nb.acc
-      }
-      
-    if(algoSelected == 'k Nearest Neighbour'){
-      pred.knn <- do_cv_class(patdat,10,"5nn")
-      knn.acc <- get_metrics(pred.knn,0.5)
-      ErrorMet <- knn.acc
-    }
-    
-    if(algoSelected == 'Random Forest'){
-      pred.rf <- do_cv_class(patdat,10,"rf")
-      rf.acc <- get_metrics(pred.rf,0.5)
-      ErrorMet <- rf.acc
-    }
-    
-    
-    if(algoSelected == 'Linear Discriminant Analysis'){
-      a <- flex1()
-      
-      b <- patdata()
-      b <- b[-1,]
-      a1 <- a[,ncol(a)]
-      for(i in 1:length(a1)){
-        if(a1[i] > 0.8){
-          a1[i] =1
-        }
-        if(a1[i] <= 0.8){
-          a1[i] =0
-        }
-      }
-      
-      b1 <- b[,ncol(b)]
-      cc <- cbind(as.data.frame(a1),as.data.frame(b1))
-      ErrorMet <- get_metrics(cc,0.5)
-    }
-    
-    
-    ErrorMet
-  },options = list(searching = FALSE,paging = FALSE))
-  
-  
-  
-  output$confusionMatrix <- renderDataTable({
-    patdat <- patdata()
-    algoSelected <- algoSelection()
-    
-    if(algoSelected == 'Logistic Regression'){
-      pred.glm <- do_cv_class(patdat,10,"logreg")
-      pred.glm <- pred.glm[,c(2,1)]
-      glm.acc <- get_confusion_matrix(pred.glm,0.5)
-      ErrorMet <- glm.acc
-    }
-    
-    if(algoSelected == 'Support Vector Machines'){
-      pred.svm <- do_cv_class(patdat,10,"svm")
-      svm.acc <- get_confusion_matrix(pred.svm,0.5)
-      ErrorMet <- svm.acc
-    }
-    
-    if(algoSelected == 'Naive Bayes'){
-      pred.nb <- do_cv_class(patdat,10,"nb")
-      nb.acc <- get_confusion_matrix(pred.nb,0.5)
-      ErrorMet <- nb.acc
-    }
-    
-    if(algoSelected == 'k Nearest Neighbour'){
-      pred.knn <- do_cv_class(patdat,10,"5nn")
-      knn.acc <- get_confusion_matrix(pred.knn,0.5)
-      ErrorMet <- knn.acc
-    }
-    
-    if(algoSelected == 'Random Forest'){
-      pred.rf <- do_cv_class(patdat,10,"rf")
-      rf.acc <- get_confusion_matrix(pred.rf,0.5)
-      ErrorMet <- rf.acc
-    }
-    
-    if(algoSelected == 'Linear Discriminant Analysis'){
-      a <- flex1()
-      
-      b <- patdata()
-      b <- b[-1,]
-      a1 <- a[,ncol(a)]
-      for(i in 1:length(a1)){
-        if(a1[i] > 0.8){
-          a1[i] =1
-        }
-        if(a1[i] <= 0.8){
-          a1[i] =0
-        }
-      }
-      
-      b1 <- b[,ncol(b)]
-      cc <- cbind(as.data.frame(a1),as.data.frame(b1))
-      ErrorMet <- get_confusion_matrix(cc)
-    }
-    
-    ErrorMet
-  },options = list(searching = FALSE,paging = FALSE))
-  
-  
-  
-  
-  output$select1 <- renderUI({
-     patdat <- patdata()
-     cols <- colnames(patdat)
-     colType <- getcolType(patdat,cols)
-     vital1 <- list()
-     for(i in 1:length(colType)){
-       if(colType[i]=="Numeric" && cols[i] != "ID" && cols[i] != "Patient_ID"){
-         vital1 <- append(vital1,cols[i])
-       }
-     }
-     selectInput("sel1", label = "",choices = vital1)
-  })
-  
-  output$select2 <- renderUI({
-    patdat <- patdata()
-    cols <- colnames(patdat)
-    colType <- getcolType(patdat,cols)
-    vital1 <- list()
-    for(i in 1:length(colType)){
-      if(colType[i]=="Numeric" && cols[i] != "ID" && cols[i] != "Patient_ID"){
-        vital1 <- append(vital1,cols[i])
-      }
-    }
-    selectInput("sel2", label = "",choices = vital1)
-  })
-  
-  
-  output$scatter <- renderGvis({
-    data <- patdata()
-    data <- data[,-1]
-    x <- csel1()
-    y <- csel2()
-    if(is.null(x)){
-      x< - a
-      out <- textOutput("")
-      out
-    }
-    else{
-    data12 <- subset(data,select = c(x,y))
-    data14 <<- as.data.frame(data[,1],stringsAsFactors = FALSE)
-    data12 <- cbind(data14,data12)
-    colnames(data12)[1] <- "ID"
-    colnames(data12)[2] <- "xaxis"
-    colnames(data12)[3] <- "yaxis"
-    data12new <- data.frame(data12[2],data12[3])
-    for(i in 1:nrow(data12)){
-      data12[i,1] <- paste(" Patient ID : ",data12[i,1]," ")
-    }
-    data12new <- cbind(data12new,data12[1])
-    colnames(data12new) <- c("Xaxis","Yaxis","pop.html.tooltip")
-    bub <- gvisScatterChart(data12new, 
-      options = list(tooltip="{isHtml:'True'}",
-        trendlines="0",legend = "none"
-      )
-    )
-    bub
-  }})
-  
-  output$cortext <- renderText({
-    data <- patdata()
-    data <- data[,-1]
-    x <- csel1()
-    y <- csel2()
-    data12 <- subset(data,select = c(x,y))
-    fintext <-
-      paste("The correlation between ",x,"and",y,"is",cor(as.numeric(data12[,1]) , as.numeric(data12[,2])))
-    fintext
-  })
-  
-  
-  
+  ######################################################################################################
+  # functions called in the exploreData Page
+  ######################################################################################################
+  
+  # function to get the display the number of records in the input file
   output$recordCount <- renderText({
-    patdat <- patdata()
-    numRecords <- (nrow(patdat)-1)
+    inputData <- getinputData()
+    numRecords <- nrow(inputData)
     printNumRecords <- paste("Number of patient records : ",numRecords)
     printNumRecords
   })
   
+  # function to display the number of columns in the input file
   output$attributeCount <- renderText({
-    patdat <- patdata()
-    numAttributes <- (ncol(patdat) - 2)
-    printNumCols <- paste("Number of factors considered : ",numAttributes)
+    inputData <- getinputData()
+    # remove ID column
+    numAttributes <- ncol(inputData) - 1
+    printNumCols <- paste("Number of attributes : ",numAttributes)
     printNumCols
   })
   
-  colSelect <- reactive({
-    colSelect_var <- input$ColSelection
+  # function to display a dropdown with options as the list of columns
+  output$exploreColumnsSelection <- renderUI({
+    inputData <- getinputData()
+    inputData <- inputData[,-1]
+    listCols <- colnames(inputData)
+    selectInput("exploreColSelection","Select the column to explore",listCols)
   })
   
-  
-  impVarSelect <- reactive({
-    imp_var_sel <- input$impVariableSelection
+  # fuction that will be called whenever a selection is made in input Colselection dropdown to store the value selected
+  getExploreSelectedCol <- reactive({
+    input$exploreColSelection
   })
   
-  DriverSelect <- reactive({
-    imp_Driver <- input$DriverSelection
-  })
-
-  
-    output$exploreColumnsSelection <- renderUI({
-    patdat <- patdata()
-    patdat <- patdat[,-1]
-    listCols <- colnames(patdat)
-    listCols <- listCols[-1]
-    selectInput("ColSelection",'',listCols)
-  })
-    
-    output$Drivers <- renderUI({
-      patlist <- patientlist()
-      listCols <- levels(patlist$minCol)
-      selectInput("DriverSelection",'',listCols)
-    })
-    
-    output$dataSummary <- renderDataTable({
-      patdat <- patdata()
-      cols <- colnames(patdat)
-      # remove ID column form columns
-      colType <- getcolType(patdat,cols)
-      minVals <- getNumericalMetric(patdat,colType,cols,"min")
-      maxVals <- getNumericalMetric(patdat,colType,cols,"max")
-      meanVals <- getNumericalMetric(patdat,colType,cols,"mean")
-      sdVals <- getNumericalMetric(patdat,colType,cols,"sd")
-      YesCount <- getCategoricalMetric(patdat,colType,cols,1)
-      NoCount <- getCategoricalMetric(patdat,colType,cols,0)
-      dataSumm <- data.frame(cols,colType,minVals,maxVals,meanVals,sdVals,YesCount,NoCount)
-      dataSumm <- dataSumm[-c(1,2),]
-      colnames(dataSumm) <- c("Variable Name","Variable Type","Minimum", "Maximum", "Mean", "Standard Deviation","Yes","No")
-      dataSumm
-    },options=list(paging = FALSE,searching = FALSE))
-    
-    getcolType <- function(df,cols){
-      typeVector <- character(length(cols))
-      for(i in 1:length(cols)){
-        df[,i] <- as.numeric(df[,i])
-        if(cols[i] == 'Gender'){
-          typeVector[i] = 'Categorical'
-        }
-        else if(max(df[,i]) == 1){
-          typeVector[i] = 'Categorical'
-        }
-        else{
-          typeVector[i] = 'Numeric'
-        }
-      }
-      return(typeVector)
+  # function that will be called when a selection is made in the above dropdown to display
+  # the graphs of distribution of different variables
+  output$exploreVarPlot <- renderGvis({
+    # get the column that is selected
+    exploreSelectedColumn <- getExploreSelectedCol()
+    # if data is null, do not show anything
+    if(is.null(exploreSelectedColumn)){
+      textOutput("")
     }
-    
-    getCategoricalMetric <- function(df,colType,cols,value){
-      metricValVector <- character(length(cols))
-      for(i in 1:length(cols)){
-        if(colType[i] == 'Categorical'){
-          oneCount <- sum(as.numeric(df[,i]))
-          if(value == 1){
-            percent <- round(oneCount/nrow(df)*100,2)
-            metricValVector[i] <- paste(oneCount," ,%(",percent,")")
-          }
-          else{
-            percent <- round((nrow(df)-oneCount)/nrow(df)*100,2)
-            metricValVector[i] <- paste(nrow(df)-oneCount," ,%(",percent,")")
-          }
-        }
-        else{
-          metricValVector[i] <- " "
-        }
-      }
-      return(metricValVector)
-    }
-    
-    getNumericalMetric <- function(df,colType,cols,fn){
-      metricValVector <- character(length(cols))
-      for(i in 1:length(cols)){
-        if(colType[i] == 'Categorical'){
-          metricValVector[i] <- " "
-        }
-        else{
-          valList <- as.numeric(as.character(df[-nrow(df),i]))
-          metricValVector[i] <- do.call(fn,list(valList))
-          metricValVector[i] <- round(as.numeric(metricValVector[i]),2)
-        }
-      }
-      return(metricValVector)
-    }
-    
-    
-  output$DriverGraphs <- renderGvis({
-    patlist <- patientlist()
-    patlist$size <- as.numeric(as.character(patlist$size))
-    patlist$size <- patlist$size
-    patlist$minCol <- as.character(patlist$minCol)
-    driverSelected <- DriverSelect()
-    if(is.null(driverSelected)){
-      print("here")
-      a <- textOutput("")
-      a
-    }
+    # if data is present
     else{
-    rowSele <- which(patlist$minCol == driverSelected)
-    subpatlist <- patlist[rowSele,]
-    subpatlist <- subset(subpatlist,select = -minCol)
-    subpatlist$color <- rep("Patient",nrow(subpatlist))
-    hasHighRisk = 0
-    hasLowRisk = 0
-   for(i in 1:nrow(subpatlist)){
-      if(subpatlist[i,3] > 0){
-        subpatlist[i,5] <- "High Risk Patients"
-        hasHighRisk = 1
+      # Progress bar -> to show progress of steps being performed
+      withProgress(message = 'Gettring required Data',value = 0.1,{
+        Sys.sleep(0.1)
+        inputData <- getinputData()
+        inputCols <- colnames(inputData)
+        inputColType <- getColType(inputData)
+        # get the data of the column that is selected
+        inputData <- inputData[,exploreSelectedColumn]
+        #get the column type of selected column
+        selectedColType <- inputColType[which(inputCols==exploreSelectedColumn)]
+      })
+      # if selected column is categorcal, display 
+      if(selectedColType == "Categorical"){
+        withProgress(message = 'Generating the plot',value = 0.1,{
+          Sys.sleep(0.25)
+          reqData <- as.data.frame(round(prop.table(table(inputData))*100,2))
+          reqData$Count.style = c('#FF4000','#0073B7') 
+          colnames(reqData) <- c(exploreSelectedColumn,"Percent","Count.style")
+          gvisColumnChart(reqData,xvar = exploreSelectedColumn,yvar = c("Percent","Count.style"),
+                          options= list(height = 400,width = 700,legend = 'none',title = paste("Distribution of ",exploreSelectedColumn),
+                                        vAxis="{title:'Percentage'}",hAxis = paste("{title:'",exploreSelectedColumn,"'}")))
+        })
       }
       else{
-        subpatlist[i,5] <- "Low Risk Patients"
-        hasLowRisk = 1
+        withProgress(message = 'Generating the plot',value = 0.1,{
+          Sys.sleep(0.25)
+          colGvis <- gvisHistogram(data.frame(inputData),options = list(height = 400,legend = 'none',
+                                                  title = paste("Distribution of ",exploreSelectedColumn),
+                                                  vAxis="{title:'Count'}",hAxis = paste("{title:'",exploreSelectedColumn,"'}")))
+        })
       }
-   }
-    subpatlistnew <- data.frame(subpatlist[2],subpatlist[3])
-    subpatlistnew <- cbind(subpatlistnew,subpatlist[1])
-    colnames(subpatlistnew) <- c("Xaxis","Yaxis","pop.html.tooltip")
-    if(hasHighRisk == 1 && hasLowRisk == 1){
-      bub <- gvisScatterChart(subpatlistnew,options = list(tooltip="{isHtml:'True'}",legend = 'none'))      
     }
-    else if (hasHighRisk == 0){
-      bub <- gvisScatterChart(subpatlistnew,options = list(tooltip="{isHtml:'True'}",legend = 'none'))      
-    }
+  })
+  
+  ##################################
+  # functions in the bivariate tab
+  ##################################
+  
+  # display dropdown of all columns
+  output$columnxSelection <- renderUI({
+    inputData <- getinputData()
+    inputCols <- colnames(inputData)
+    # remove ID column
+    inputCols <- inputCols[-1]
+    # display dropdown with first variable selected by default
+    selectInput("columnx","Select the variable for x axis",inputCols,selected = inputCols[1])
+  })
+  
+  # get the selected first column
+  getColumnx <- reactive({
+    input$columnx
+  })
+  
+  # display dropdown of all columns
+  output$columnySelection <- renderUI({
+    inputData <- getinputData()
+    inputCols <- colnames(inputData)
+    # remove ID column
+    inputCols <- inputCols[-1]
+    # display dropdown with first variable selected by default
+    selectInput("columny","Select the variable for y axis",inputCols,selected = inputCols[1])
+  })
+  
+  # get the selected first column
+  getColumny <- reactive({
+    input$columny
+  })
+  
+  output$exploreBiPlot <- renderGvis({
+    columnx <- getColumnx()
+    columny <- getColumny()
+    if(is.null(columnx) || is.null(columny)){textOutput("")}
     else{
-      bub <- gvisScatterChart(subpatlistnew,options = list(tooltip="{isHtml:'True'}",legend = 'none'))      
+      inputData <- getinputData()
+      inputColType <- getColType(inputData)
+      inputCols <- colnames(inputData)
+      # get the data and type of column 1
+      columnxData <- inputData[,which(inputCols==columnx)]
+      columnxType <- inputColType[which(inputCols==columnx)]
+      # get the data ans type of column 2
+      columnyData <- inputData[,which(inputCols==columny)]
+      columnyType <- inputColType[which(inputCols==columny)]
+      # handling the 4 cases of data types
+      # if both are numerical, use scatter plot
+      if(columnxType=="Numerical" && columnyType=="Numerical"){
+        output <- gvisScatterChart(data.frame(columnxData,columnyData),options = list(height = 400,legend = 'none',
+                                                                                      title = paste("Distribution of ",columny," against ",columnx),
+                                                                                      vAxis=paste("{title:'",columny,"'}"),hAxis = paste("{title:'",columnx,"'}")))
+      }
+      # if both are categorical, use column chart
+      else if(columnxType=="Categorical" && columnyType=="Categorical"){
+        prop <- round(prop.table(table(data.frame(columnxData,columnyData)))*100,2)
+        propData <- data.frame(row.names(prop),prop[,1],prop[,2])
+        colnames(propData) <- c("Output","No","Yes")
+        output <- gvisColumnChart(propData,options = list(height = 400,legend = 'none',width = 700,
+                                                          title = paste("Distribution of ",columny," against ",columnx),
+                                                          vAxis=paste("{title:'",columny,"(Percentage)'}"),hAxis = paste("{title:'",columnx,"'}")))
+      }
+      # if x is numerical, y is categorical, use bar chart of average
+      else if(columnxType=="Numerical" && columnyType=="Categorical"){
+        if(columny=="Gender"){
+          colNo <- as.numeric(columnxData[which(columnyData=="Female")])
+          colYes <- as.numeric(columnxData[which(columnyData=="Male")])
+          variable <- c("Female","Male")
+        }
+        else{
+          colNo <- as.numeric(columnxData[which(columnyData=="No")])
+          colYes <- as.numeric(columnxData[which(columnyData=="Yes")])
+          variable <- c("No","Yes")
+        }  
+        meanNo <- mean(colNo)
+        meanYes <- mean(colYes)
+        meanVals <- c(meanNo,meanYes)
+        color <- c('color: red','color: green')
+        outputData <- data.frame(variable,meanVals,color)
+        colnames(outputData) <- c("Variable","Mean","color.style")
+        output <- gvisBarChart(outputData,yvar = c("Mean","color.style"),xvar = "Variable",options = list(height = 400,legend = 'none',
+                                                                                                          title = paste("Distribution of ",columny," against ",columnx),
+                                                                                                          vAxis=paste("{title:'",columny,"'}"),hAxis = paste("{title:' Average",columnx,"'}")))
+        
+      }
+      # if x is categorical, y is numerical, using candlestick chart
+      else if(columnxType=="Categorical" && columnyType=="Numerical"){
+        #get the metrics(low open close high) when categorical column is no
+        if(columnx=="Gender"){
+          colNo <- as.numeric(columnyData[which(columnxData=="Female")])
+          colYes <- as.numeric(columnyData[which(columnxData=="Male")])
+          variable <- c("Female","Male")
+        }
+        else{
+          colNo <- as.numeric(columnyData[which(columnxData=="No")])
+          colYes <- as.numeric(columnyData[which(columnxData=="Yes")])
+          variable <- c("No","Yes")
+        }
+        lowNo <- min(colNo)
+        highNo <- max(colNo)
+        openNo <- mean(colNo) - sd(colNo)
+        closeNo <- mean(colNo) + sd(colNo)
+        # get the metrics when selected category is yes
+        lowYes <- min(colYes)
+        highYes <- max(colYes)
+        openYes <- mean(colYes) - sd(colYes)
+        closeYes <- mean(colYes) + sd(colYes)
+        # combine the yes and no categories
+        low <- c(lowNo,lowYes)
+        open <- c(openNo,openYes)
+        close <- c(closeNo,closeYes)
+        high <- c(highNo,highYes)
+        outputData <- data.frame(variable,low,open,close,high)
+        output <- gvisCandlestickChart(outputData,options = list(height = 400,legend = 'none',width = 700,
+                                                                 title = paste("Distribution of ",columny," against ",columnx),
+                                                                 vAxis=paste("{title:'",columny,"'}"),hAxis = paste("{title:'",columnx,"'}")))
+      }
     }
-  bub
-  }
-  }
-  )
-  
-
+  })
   
   
-  output$ExploreGraphs <- renderGvis({
-    colSelected <<- colSelect()
-    if(is.null(colSelected)){
+  #################################################################################################################
+  # functions within the correlation Insights page
+  #################################################################################################################
+  
+  # plot the corrplot to show correlation among all the columns
+  output$correlationPlot <- renderPlot({
+    inputData <- getinputData()
+    inputData <- inputData[,-1]
+    inputData <- getNumericalInputData(inputData)
+    # get the set of correlations of each column with every other column
+    correlations <- cor(inputData)
+    corrPlot <- corrplot(correlations,type="lower",method = "color")
+    corrPlot
+  })
+  
+  output$outputColCorList <- renderText({
+    inputData <- getinputData()
+    lastCol <- colnames(inputData)[ncol(inputData)]
+    return(paste("Correlation with ",lastCol))
+  })
+  
+  
+  output$correlationList <- renderDataTable({
+    inputData <- getinputData()
+    inputData <- getNumericalInputData(inputData)
+    outputCol <- inputData[ncol(inputData)]
+    inputData <- inputData[,-c(1,ncol(inputData))]
+    inputColumns <- colnames(inputData)
+    correlations <- sapply(inputData,function(x){return(cor(x,outputCol))})
+    corrList <- head(data.frame(correlations[order(correlations,decreasing = TRUE)]),15)
+    colnames(corrList) <- c("Correlation")
+    output <- datatable(corrList,class = 'cell-border stripe',options = list(lengthChange = FALSE,searching = FALSE,paging=FALSE,
+                                                                             columnDefs = list(list(className = 'dt-center', targets = 0:1)),
+                                                                             initComplete = JS("function(settings, json) {",
+                                                                                                    "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});","}")))%>% 
+      formatStyle('Correlation',textAlign = 'center')
+    
+  })
+  
+  # function to display a dropdown of all numerical columns to select x axis
+  output$selectx <- renderUI({
+    inputData <- getinputData()
+    # remove ID column
+    inputData <- inputData[,-1]
+    numericalData <- getNumericalData(inputData)
+    numericalColumns <- colnames(numericalData)
+    selectInput("selectx", label = "Select the x-axis column",choices = numericalColumns)
+  })
+  
+  # function that will get the selected X value
+  getX <- reactive({
+    input$selectx
+  })
+  
+  # function to display a dropdown of all numerical columns to select y axis
+  output$selecty <- renderUI({
+    inputData <- getinputData()
+    # remove ID column
+    inputData <- inputData[,-1]
+    numericalData <- getNumericalData(inputData)
+    numericalColumns <- colnames(numericalData)
+    selectInput("selecty", label = "Select the y-axis column",choices = numericalColumns)
+  })
+  
+  # function that will get the selected Y value
+  getY <- reactive({
+    input$selecty
+  })
+  
+  # function to calculate correlation between the selected axis
+  output$correlationValue <- renderText({
+    inputData <- getinputData()
+    x <- getX()
+    y <- getY()
+    # if data is null, do not show anything
+    if(is.null(x)){paste("")}
+    # get the subset of only x and y
+    else{
+      selectedSubset <- subset(inputData,select = c(x,y))
+      # function cor will calculate the correlation between 2 columns
+      output <- paste("The correlation between ",x,"and",y,"is",round(cor(as.numeric(selectedSubset[,1]),as.numeric(selectedSubset[,2])),2))
+    }
+  })
+  
+  # scatter plot to show distribution and correlation and distribution of 2 columns
+  output$scatterPlot <- renderGvis({
+    inputData <- getinputData()
+    patientIDCol <- inputData[,1]
+    x <- getX()
+    y <- getY()
+    # if data is null, do not show anything
+    if(is.null(x)){textOutput("")}
+    else{
+      withProgress(message = "Getting the data ready",value = 0.1,{
+        Sys.sleep(0.1)
+        # get the selected column data
+        selectedSubset <- subset(inputData,select = c(x,y))
+        # get the patient IDs
+        colSubset <- cbind(selectedSubset,patientIDCol)
+        # change format of Patient ID to display
+        colSubset[,3] <- paste(" Patient ID : ",colSubset[,3])
+        colnames(colSubset) <- c("Xaxis","Yaxis","pop.html.tooltip")
+    })
+      withProgress(message = "Generating the plot",value = 0.1,{
+        Sys.sleep(0.25)
+        output <- gvisScatterChart(colSubset,options = list(tooltip="{isHtml:'True'}",trendlines="0",legend = "none", height = 600,
+                                   title = paste("Scatter plot of ",x," and ",y),
+                                   hAxis = paste("{title : '",x,"'}"),vAxis = paste("{title : '",y,"'}")))
+        })
+      }
+    })
+  
+  #################################################################################################################
+  # functions of the Select Variable
+  #################################################################################################################
+  
+  output$outputVariables <- renderUI({
+    inputData <- getinputData()
+    inputColType <- getColType(inputData)
+    outputVariables <- colnames(inputData)[which(inputColType=="Categorical")]
+    radioButtons("outputVariable", "",choices=outputVariables,selected = outputVariables[length(outputVariables)])
+  })
+  
+  # function that gets the selected risk variables
+  getOutputVariable <- reactive({
+    input$outputVariable
+  })
+  
+  # function to display columns to select risk variables
+  output$selectRiskVariables <- renderUI({
+    inputData <- getinputData()
+    riskVariables <- colnames(inputData)[-1]
+    riskVariables <- riskVariables[-which(riskVariables==getOutputVariable())]
+    checkboxGroupInput("riskVariables","", choices  = riskVariables, selected = riskVariables)
+  })
+  
+  # function that gets the selected risk variables
+  getRiskVariables <- reactive({
+    input$riskVariables
+  })
+  
+  # function that displays risk variable columns to select for monitoring
+  output$selectMonitoredVariables <- renderUI({
+    riskVariables <- getRiskVariables()
+    if(is.null(riskVariables)){
       textOutput("")
     }
     else{
-    colOrig <- colSelected
-    patdat <- patdata()
-    patdat <- patdat[,colSelected]
-    colSelected <- tolower(colSelected)
-    patdat <- as.data.frame(patdat)
-    colnames(patdat) <- c(colSelected)
-    if(!is.null(colSelected)){
-      if(ncol(patdat)!=0){
-        patdat[,1] <- as.numeric(patdat[,1])
-        if(colSelected == 'gender'){
-            patdat[,1] <- mapvalues(patdat[,1],c(0,1),c("Female","Male"))
-            patdat[,1] <- as.factor(patdat[,1])
-            reqData <- as.data.frame(round(prop.table(table(patdat[,1]))*100,2))
-            reqData$Count.style = c('#FF4000','#0073B7') 
-            colnames(reqData) <- c("Gender","Percent","Count.style")
-            colGvis <- gvisColumnChart(reqData,xvar = "Gender",yvar = c("Percent","Count.style"),
-                                       options= list(height = 400,
-                                                     width = 700,
-                                                     legend = 'none',
-                                         title = "Distribution of Gender",
-                                                     titleTextStyle = "{fontName:'Arial',fontSize:16}",
-                                       vAxes="[{title:'Percentage',
-                                       titleTextStyle : {fontName:'Arial'},
-                                       titleTextStyle : {fontSize:14}}]"))
-        }
-        else if(max(patdat[,1]) == 1){
-          patdat[,1] <- mapvalues(patdat[,1],c(0,1),c("No","Yes"))
-          patdat[,1] <- as.factor(patdat[,1])
-          reqData <- as.data.frame(round(prop.table(table(patdat[,1]))*100,2))
-          reqData$Count.style = c('#FF4000','#0073B7') 
-          colnames(reqData) <- c(colOrig,"Percent","Count.style")
-          colGvis <- gvisColumnChart(reqData,
-                                     xvar = colOrig,
-                                     yvar = c("Percent","Count.style"),
-                                     options= list(height = 400,
-                                                   width = 700,
-                                                   legend = 'none',
-                                       title = paste("Distribution of ",colOrig),
-                                                   titleTextStyle = "{fontName:'Arial',fontSize:16}",
-                                                   vAxes="[{title:'Percentage',
-                                                   titleTextStyle : {fontName:'Arial'},
-                                                   titleTextStyle : {fontSize:14}}]"))
-        }
-        else{
-          colGvis <- gvisHistogram(patdat,
-                                   options = list(
-                                     height = 400,
-                                     legend = 'none',
-                                     title = paste("Distribution of ",colOrig),
-                                     titleTextStyle = "{fontName:'Arial',fontSize:16}",
-                                     vAxes="[{title:'Count',
-                                     titleTextStyle : {fontName:'Arial'},
-                                     titleTextStyle : {fontSize:14}}]"
-                                   ))
-        }
-      }
+      checkboxGroupInput("monitoredVariables","", choices  = riskVariables)
     }
-    colGvis
-  }})
-  
-  
-  output$vitalColSelect <- renderUI({
-    vitalVariables <- vital()
-    editableVariables <- edit()
-    impVariables <- c(vitalVariables,editableVariables)
-    impVariables <- unique(impVariables)
-    impVariables <- unlist(impVariables)
-    selectInput("impVariableSelection",'',impVariables)
   })
   
+  # function that gets the selected monitored variables
+  getMonitoredVariables <- reactive({
+    input$monitoredVariables
+  })
   
-  # helper function to determine if a column is numeric or categorical
-  colType <- function(){
-    patdat <- patdata()
-    # removing ID column
-    patdat <- patdat[-1]
-    maxlist <- apply(patdat,2,max)
-    numericList <- numeric(length(maxlist))
-    for(i in 1:length(maxlist)){
-      if(maxlist[i] > 1){
-        numericList[i] <- 1
+  output$monitoredMinimum <- renderUI({
+    # get the variables that are selected for monitoring
+    monitoredVariables <- getMonitoredVariables()
+    # if no variable is selected, show nothing
+    if (is.null(monitoredVariables)) {
+      textOutput("")
+    } 
+    # if variable is selected
+    else{
+      inputData <- getinputData()
+      # get the subset of selected columns
+      selectedSubset <- subset(inputData,select = monitoredVariables)
+      # get the type of columns selected
+      inputColType <- getColType(selectedSubset)
+      # if columns selected are numerical, display inputbox for minimumvalue
+      output <- lapply(1:length(inputColType), function(i) {
+        if (inputColType[i] == "Numerical") {
+          numericInput(paste("minimum",i,sep = "_"), label = paste("Minimum ",monitoredVariables[i]), value = 0,min = 0,max = 1000)
+        }
+      })
+      output
+    }
+  })
+  
+  output$monitoredMaximum <- renderUI({
+    # get the variables that are selected for monitoring
+    monitoredVariables <- getMonitoredVariables()
+    # if no variable is selected, show nothing
+    if (is.null(monitoredVariables)) {
+      textOutput("")
+    } 
+    # if variable is selected
+    else{
+      inputData <- getinputData()
+      # get the subset of selected columns
+      selectedSubset <- subset(inputData,select = monitoredVariables)
+      # get the type of columns selected
+      inputColType <- getColType(selectedSubset)
+      # if columns selected are numerical, display inputbox for minimumvalue
+      output <- lapply(1:length(inputColType), function(i) {
+        if (inputColType[i] == "Numerical") {
+          numericInput(paste("maximum",i,sep = "_"), label = paste("Maximum ",monitoredVariables[i]), value = 0,min = 0,max = 1000)
+        }
+      })
+      output
+    }
+  })
+  
+  output$monitoredIdealCat <- renderUI({
+    # get the variables that are selected for monitoring
+    monitoredVariables <- getMonitoredVariables()
+    # if no variable is selected, show nothing
+    if (is.null(monitoredVariables)) {
+      textOutput("")
+    } 
+    # if variable is selected
+    else{
+      inputData <- getinputData()
+      # get the subset of selected columns
+      selectedSubset <- subset(inputData,select = monitoredVariables)
+      # get the type of columns selected
+      inputColType <- getColType(selectedSubset)
+      # if columns selected are numerical, display inputbox for minimumvalue
+      output <- lapply(1:length(inputColType), function(i) {
+        if (inputColType[i] == "Categorical") {
+          selectInput(paste("idealCat",i,sep = "_"), label = monitoredVariables[i], choices = list("Yes"="Yes", "No"="No"),selected = "Yes")
+        }
+      })
+      output
+    }
+  })
+  
+  #################################################################################################################
+  # functions of the population view
+  #################################################################################################################
+  
+  # function that will get the value of slider selected
+  sliderSelection <- reactive({
+    input$sliderSelection
+  })
+  
+  # function that will display population plot
+  output$populationGraph <- renderGvis({
+    # get the selected slider value
+    sliderSelected <- sliderSelection()
+    # get the risk variables selected
+    riskVariables <- getRiskVariables()
+    if(is.null(riskVariables)){textOutput("")}
+    monitoredVariables <- getMonitoredVariables()
+    inputData <- getinputData()
+    # get the selected output column
+    outputVariable <- getOutputVariable()
+    outputCol <- inputData[,which(colnames(inputData)==outputVariable)]
+    inputData <- getNumericalInputData(inputData)
+    IDCol <- inputData[,1]
+    withProgress(message = 'Getting required Data',value=0.1,{
+      Sys.sleep(0.25)
+      # get the subset of inputData that are selected risk variables
+      riskData <- subset(inputData,select = riskVariables)
+      # get set of anchors that are scaled by variance
+      anchorCoordinates <- getVarSclaedAnchorCoordinates(riskData,outputCol,monitoredVariables)
+      # get the coordinates of each patient
+      patientCoordinates <- getSelectedPatientCoordinates(riskData,IDCol,outputCol,sliderSelected)
+      # combine patient coordinates and anchor coordinates
+      combinedCoordinates <- rbind(patientCoordinates,anchorCoordinates)
+      # sort the data by type
+      combinedCoordinates <- combinedCoordinates[order(as.character(combinedCoordinates[,4])),]
+      colnames(combinedCoordinates) <- c("ID","PCA","LDA","Type","Influence")
+    })
+    withProgress(message = 'Generating Plot',value=0.1,{
+      Sys.sleep(0.25)
+      # if data includes both low risk and high risk and monitored variable
+      if(("Monitored Feature" %in% unique(combinedCoordinates$Type)) && ("Low Risk" %in% unique(combinedCoordinates$Type))){
+        # display bubble chart of patient and anchor coordinates
+        popGraph <- gvisBubbleChart(combinedCoordinates,colorvar = "Type",sizevar="Influence",
+                                   options = list(height = 800,
+                                   title = "Population View",
+                                   vAxis = "{title:'<---   Low Risk Region.................High Risk Region   --->'}",
+                                   hAxis = "{title: 'Population Variation'}",
+                                   colors = "['#819FF7','#FE642E','#58FA82','#FF69B4']"))
       }
+      else if(("Monitored Feature" %in% unique(combinedCoordinates$Type))){
+        popGraph <- gvisBubbleChart(combinedCoordinates,colorvar = "Type",sizevar="Influence",
+                                    options = list(height = 800,
+                                                   title = "Population View",
+                                                   vAxis = "{title:'<---   Low Risk Region.................High Risk Region   --->'}",
+                                                   hAxis = "{title: 'Population Variation'}",
+                                                   colors = "['#819FF7','#FE642E','#FF69B4']"))
+      }
+      else if(("Low Risk" %in% unique(combinedCoordinates$Type))){
+        popGraph <- gvisBubbleChart(combinedCoordinates,colorvar = "Type",sizevar="Influence",
+                                    options = list(height = 800,
+                                                   title = "Population View",
+                                                   vAxis = "{title:'<---   Low Risk Region.................High Risk Region   --->'}",
+                                                   hAxis = "{title: 'Population Variation'}",
+                                                   colors = "['#819FF7','#FE642E','#58FA82']"))
+      }
+      # if data only includes high risk and no monitored variable
       else{
-        numericList[i] <- 0
-      }
-    }
-    # returns a list where 1 is a numeric column and 0 indicates categorical column
-    return(numericList)
-  }
-  
-  
-  #helper function to get 
-  idealValues <- function(){
-    impVariables <- vital()
-    impVariables <- unique(impVariables)
-    impVariables <- unlist(impVariables)
-    temp1 <- patdata()
-    temp1 <- temp1[,-1]
-    temp2 <- subset(temp1,select = impVariables)
-    final1 <- data.frame(Ideal = character(),stringsAsFactors = FALSE)
-    max <- data.frame(Ideal = character(),stringsAsFactors = FALSE)
-    for (i in 1:ncol(temp2)) {
-      if (temp2[nrow(temp2),i] == 0) {
-        eval(parse(text = paste("final1[",i,",1] <- input$ideal1_",i,sep = "")))
-        eval(parse(text = paste("max[",i,",1] <- input$ideal3_",i,sep = "")))
-      }
-      if (temp2[nrow(temp2),i] == 1) {
-        eval(parse(text = paste("if(input$ideal2_",i," == 1){final1[",i,",1] <- '1'} else{final1[",i,",1] <- '0'}",sep = "")))
-        #eval(parse(text = paste("max[",i,",1] <- 'NA'",i,sep = "")))
-      }
-    }
-    colnames(max) <- c("Max")
-    final1$Ideal <- as.character(final1$Ideal)
-    final2 <- cbind(impVariables,final1)
-    final3 <- cbind(final2,max)
-    return(final3)
-  }
-  
-  
-  
-  output$colValues <- renderDataTable({
-    patdat <- patdata()
-    columnTypes <- colType()
-    selectedPatient <- patientID()
-    patdat <- patdat[patdat$Patient_ID == selectedPatient,]
-    namesList <- colnames(patdat)
-    valueList <- unlist(patdat)
-    namesList <- namesList[-1]
-    valueList <- valueList[-1]
-    vitalVariables <- vital()
-    editableVariables <- edit()
-    impVariables <- c(vitalVariables,editableVariables)
-    impVariables <- unique(impVariables)
-    impVariables <- unlist(impVariables)
-    completeData <- data.frame(namesList,valueList,rep(0,length(namesList)))
-    for(i in 1:nrow(completeData)){
-      if(completeData[i,1]=='Gender'){
-        if(completeData[i,2]==0){
-          completeData[i,2] <- 'Female'
-        }
-        else{
-          completeData[i,2] <- 'Male'
-        }
-      }
-      else if(columnTypes[i] == 0){
-        if(completeData[i,2]==0){
-          completeData[i,2] <- 'No'
-        }
-        else{
-          completeData[i,2] <- 'Yes'
-        }
-      }
-    }
-    for(i in 1:nrow(completeData)){
-      if(completeData[i,1] %in% impVariables){
-        completeData[i,3] <- 1  
-      }
-    }
-    idealVals <- idealValues()
-    completeData$Ideal <- rep("NA",nrow(completeData))
-    colnames(completeData) <- c("Column","Actual","isImp","Ideal")
-    
-    for(i in 1:nrow(completeData)){
-      if(as.character(completeData[i,1]) %in% as.character(idealVals$impVariables)){
-        if(!is.na(idealVals[idealVals$impVariables==as.character(completeData[i,1]),3])){
-          completeData[i,4] <- paste(idealVals[idealVals$impVariables==as.character(completeData[i,1]),2]," - ",idealVals[idealVals$impVariables==as.character(completeData[i,1]),3])
-        }
-        else{
-          completeData[i,4] <- idealVals[idealVals$impVariables==as.character(completeData[i,1]),2]
-        }
-      }
-    }
-    
-    for(i in 1:nrow(completeData)){
-      if(completeData[i,1]=='Gender'){
-        if(completeData[i,4]==0){
-          completeData[i,4] <- 'Female'
-        }
-        else if(completeData[i,4]==1){
-          completeData[i,4] <- 'Male'
-        }
-      }
-      else if(columnTypes[i] == 0){
-        if(completeData[i,4]==0){
-          completeData[i,4] <- 'No'
-        }
-        else if(completeData[i,4]==1){
-          completeData[i,4] <- 'Yes'
-        }
-      }
-    }
-    # drop row containing ID
-    completeData <- completeData[-1,]
-    completeData <- completeData[-3]
-    completeData$Ideal <- mapvalues(completeData$Ideal,"NA","")
-    completeData <- completeData[order(completeData[,3],decreasing = T),]
-    colnames(completeData) <- c("Feature","Actual Values","Ideal Values")
-    # adding callback function to highlight those rows where value is greater than Ideal
-    completeData
-  },options = list(rowCallback = I(
-    'function(row, data) {
-      if(data[2] != "" && data[1] != data[2] && (isNaN(parseFloat(data[1]))))
-         $("td", row).css("background", "red");
-      else if(data[2] != "" && (parseFloat(data[1]) > parseFloat(data[2].split("-")[0])) && (parseFloat(data[1]) > parseFloat(data[2].split("-")[1])))
-          $("td", row).css("background", "red");
-      else if (data[2] != "")
-          $("td", row).css("background", "green");
-}'
-  ),paging = FALSE,searching = FALSE)
-  )
-  
-  
-  
-  #Histogram to show patients values vs ideal values
-  output$hist <- renderGvis({
-    impVarSelected <<- impVarSelect()
-    pno <- patientID()
-    
-    vit2 <- vital()
-    edi2 <- edit()
-    
-    if (nrow(vit2) == 0 & nrow(edi2) == 0) {
-      bc <- textOutput("Please select vital/editable columns")
+      popGraph <- gvisBubbleChart(combinedCoordinates,colorvar = "Type",sizevar="Influence",
+                                  options = list(height = 800,
+                                                 title = "Population Plot",
+                                                 vAxis = "{title:'<- Low Risk Region.................High Risk Region ->'}",
+                                                 hAxis = "{title: 'Population Variation'}",
+                                                 colors = "['#819FF7','#FE642E']"))
       
-    } else if (nrow(edi2) == 0 & nrow(vit2) != 0) {
-      allv <- c(vit2[,1])
-      a12 <- unique(allv)
+      }
+    })
+    withProgress(message = 'Displaying Plot',value = 0.1,{
+      popGraph
+    })
+})          
 
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      temp2 <- subset(temp1,select = a12)
-
-      final1 <- data.frame(Ideal = character(),stringsAsFactors = FALSE)
-      for (i in 1:ncol(temp2)) {
-        if (temp2[nrow(temp2),i] == 0) {
-          eval(parse(text = paste("final1[",i,",1] <- input$ideal1_",i,sep = "")))
-          #eval(parse(text = paste("final1[",i,",1] <- input$ideal3_",i,sep = "")))
-        }
-        if (temp2[nrow(temp2),i] == 1) {
-          eval(parse(text = paste("if(input$ideal2_",i," == 1){final1[",i,",1] <- '1'} else{final1[",i,",1] <- '0'}",sep = "")))
-        }
-      }
-      fl <- flex1()
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      fl <- c(fl[,1],1000)
-      
-      temp1 <- cbind(fl,temp1)
-      colnames(temp1)[1] <- "ID"
-      
-      temp4 <- subset(temp1,temp1$ID == pno)
-      act2 <- subset(temp4,select = a12)
-      final2 <- cbind(t(act2),final1)
-      final2[,3] <- rownames(final2)
-      final3 <- final2[c(3,1,2)]
-      final3[,3] <- as.numeric(final3[,3])
-      colnames(final3)[1] <- "variable"
-      colnames(final3)[2] <- "actual"
-      colnames(final3)[3] <- "ideal"
-      for (i in 1:nrow(final3)) {
-        if (final3[i,2] == 1) {
-          final3[i,2] = 100
-        }
-        if (final3[i,3] == 1) {
-          final3[i,3] = 100
-        }
-      }
-      final3  <- final3[final3[1]==impVarSelected,]
-      mycolnames <- c("Actual","Ideal")
-      mysecondcols <- c(final3[1,2],final3[1,3])
-      final4 <- data.frame(mycolnames,mysecondcols)
-      final4$Count.style = c('#FF4000','#0073B7') 
-      colnames(final4) <- c("Gender","Value","Count.style")
-      gvisColumnChart(final4, xvar = "Gender", yvar = c("Value","Count.style"), options = list(legend = 'none', height = 350))
-      
-    } else if (nrow(vit2) == 0 & nrow(edi2) != 0) {
-      allv <- c(edi2[,1])
-      a12 <- unique(allv)
-
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      temp2 <- subset(temp1,select = a12)
-      final1 <- data.frame(Ideal = character(),stringsAsFactors = FALSE)
-      
-      for (i in 1:ncol(temp2)) {
-        if (temp2[nrow(temp2),i] == 0) {
-          eval(parse(text = paste("final1[",i,",1] <- input$ideal1_",i,sep = "")))
-        }
-        if (temp2[nrow(temp2),i] == 1) {
-          eval(parse(text = paste("if(input$ideal2_",i," == 1){final1[",i,",1] <- '1'} else{final1[",i,",1] <- '0'}",sep = "")))
-        }
-      }
-      fl <- flex1()
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      fl <- c(fl[,1],1000)
-      
-      temp1 <- cbind(fl,temp1)
-      colnames(temp1)[1] <- "ID"
-      
-      temp4 <- subset(temp1,temp1$ID == pno)
-      act2 <- subset(temp4,select = a12)
-      final2 <- cbind(t(act2),final1)
-      final2[,3] <- rownames(final2)
-      final3 <- final2[c(3,1,2)]
-      final3[,3] <- as.numeric(final3[,3])
-      colnames(final3)[1] <- "variable"
-      colnames(final3)[2] <- "actual"
-      colnames(final3)[3] <- "ideal"
-      
-      for (i in 1:nrow(final3)) {
-        if (final3[i,2] == 1) {
-          final3[i,2] = 100
-        }
-        if (final3[i,3] == 1) {
-          final3[i,3] = 100
-        }
-      }
-      final3  <- final3[final3[1]==impVarSelected,]
-      mycolnames <- c("Actual","Ideal")
-      mysecondcols <- c(final3[1,2],final3[1,3])
-      final4 <- data.frame(mycolnames,mysecondcols)
-      final4$Count.style = c('#FF4000','#0073B7') 
-      colnames(final4) <- c("Gender","Value","Count.style")
-      gvisColumnChart(final4,xvar = "Gender",yvar = c("Value","Count.style"),options = list(legend = 'none',height = 350))
-    } else{
-      allv <- c(edi2[,1],vit2[,1])
-      a12 <- unique(allv)
-      
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      temp2 <- subset(temp1,select = a12)
-
-      final1 <- data.frame(Ideal = character(),stringsAsFactors = FALSE)
-      
-      for (i in 1:ncol(temp2)) {
-        if (temp2[nrow(temp2),i] == 0) {
-          eval(parse(text = paste("final1[",i,",1] <- input$ideal1_",i,sep = "")))
-        }
-        if (temp2[nrow(temp2),i] == 1) {
-          eval(parse(
-            text = paste("if(input$ideal2_",i," == 1){final1[",i,",1] <- '1'} else{final1[",i,",1] <- '0'}",sep = "")))
-        }
-      }
-      
-      fl <- flex1()
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      fl <- c(fl[,1],1000)
-      
-      temp1 <- cbind(fl,temp1)
-      colnames(temp1)[1] <- "ID"
-      
-      temp4 <- subset(temp1,temp1$ID == pno)
-      act2 <- subset(temp4,select = a12)
-      final2 <- cbind(t(act2),final1)
-      final2[,3] <- rownames(final2)
-      final3 <- final2[c(3,1,2)]
-      final3[,3] <- as.numeric(final3[,3])
-      colnames(final3)[1] <- "variable"
-      colnames(final3)[2] <- "actual"
-      colnames(final3)[3] <- "ideal"
-      
-      for (i in 1:nrow(final3)) {
-        if (final3[i,2] == 1) {
-          final3[i,2] = 100
-        }
-        if (final3[i,3] == 1) {
-          final3[i,3] = 100
-        }
-      }
-      final3  <- final3[final3[1]==impVarSelected,]
-      mycolnames <- c("Actual","Ideal")
-      mysecondcols <- c(final3[1,2],final3[1,3])
-      final4 <- data.frame(mycolnames,mysecondcols)
-      final4$Count.style = c('#FF4000','#0073B7') 
-      colnames(final4) <- c("Gender","Value","Count.style")
-      gvisColumnChart(final4,xvar = "Gender",yvar = c("Value","Count.style"),options = list(legend = 'none',height = 350))
+  #################################################################################################################
+  # functions of the risk based cluster view
+  #################################################################################################################
+  
+  # Function that will get the maximum risk variable 
+  output$riskVariableSelection <- renderUI({
+    inputData <- getinputData()
+    # remove the ID column
+    IDCol <- inputData[,1]
+    # get the output variable selected
+    outputCol <- getOutputVariable()
+    # get the selected risk variable
+    riskVariables <- getRiskVariables()
+    # get the subset of data that are the selected risk variables
+    riskData <- subset(inputData,select = riskVariables)
+    # get the column type of each risk Data
+    inputColType <- getColType(riskData)
+    # column names of risk data
+    inputCols <- colnames(riskData)
+    # get the numerical converted risk data
+    riskData <- getNumericalInputData(riskData)
+    # scale the different columns of risk data
+    riskData <- scale(riskData)
+    # get the mean of each column of risk data
+    meanVals <- getNumericalMetric(riskData,"mean")
+    # convert categorical variables as 0
+    meanVals <- as.numeric(ifelse(meanVals==" ","0",meanVals))
+    # create a blank vector for columns of maximum risk Data
+    maxValsList <- character()
+    # for each row of risk Data
+    for(i in 1:nrow(riskData)){
+      # get the column that has maximum difference from average
+      maxCol <- getMaxCol(riskData,i,inputColType,inputCols,meanVals)
+      # get the list of columns that are maximum from average
+      maxValsList <- c(maxValsList,maxCol)
     }
+    # remove the catgerocial columns
+    if("0" %in% maxValsList){
+      maxValsList <- maxValsList[-which(maxValsList=="0")]
+    }
+    # get the unique of the maximum difference columns
+    colsToSelect <- unique(maxValsList)
+    selectInput("riskDriver",'Select the driving factor',colsToSelect)
   })
   
-  #Histogram to show patients values vs ideal values
-  output$histold <- renderGvis({
-    pno <- patientID()
-    
-    vit2 <- vital()
-
-    if (nrow(vit2) == 0) {
-      bc <- textOutput("Please select vital/editable columns")
-      
-    }  else{
-      allv <- c(vit2[,1])
-      a12 <- unique(allv)
-      
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      temp2 <- subset(temp1,select = a12)
-
-      final1 <- data.frame(Ideal = character(),
-                           Maximum = character(),
-                           stringsAsFactors = FALSE)
-      for (i in 1:ncol(temp2)) {
-        if (temp2[nrow(temp2),i] == 0) {
-          eval(parse(text = paste("final1[",i,",1] <- input$ideal1_",i,sep = "")))
-          eval(parse(text = paste("final1[",i,",2] <- input$ideal3_",i,sep = "")))
+  # get the selected risk variable
+  getRiskDriver <- reactive({
+    input$riskDriver
+  })
+  
+  # function 
+  output$riskClusterPlot <- renderGvis({
+    riskDriver <- getRiskDriver()
+    if(is.null(riskDriver)){textOutput("")}
+    else{
+        inputData <- getinputData()
+        IDCol <- inputData[,1]
+        outputCol <- inputData[,ncol(inputData)]
+        withProgress(message = 'Getting required Data',value=0.1,{
+        Sys.sleep(0.25)
+        riskVariables <- getRiskVariables()
+        riskData <- subset(inputData,select = riskVariables)
+        inputColType <- getColType(riskData)
+        inputCols <- colnames(riskData)
+        riskData <- getNumericalInputData(riskData)
+        riskData <- scale(riskData)
+        patientCoordinates <- getPatientCoordinates(riskData,IDCol,outputCol)
+        meanVals <- getNumericalMetric(riskData,"mean")
+        meanVals <- ifelse(meanVals==" ","0",meanVals)
+        meanVals <- as.numeric(meanVals)
+        maxValsList <- character()
+        for(i in 1:nrow(riskData)){
+          maxCol <- getMaxCol(riskData,i,inputColType,inputCols,meanVals)
+          maxValsList <- c(maxValsList,maxCol)
         }
-        if (temp2[nrow(temp2),i] == 1) {
-          eval(parse(text = paste("if(input$ideal2_",i," == 1){final1[",i,",1] <- '1'} else{final1[",i,",1] <- '0'}",sep = "")))
-          final1[i,2] <- "0"
+        patientCoordinates[,4] <- maxValsList
+        patientCoordinates <- patientCoordinates[which(patientCoordinates[,4]==riskDriver),]
+        patientCoordinates <- patientCoordinates[order(as.character(patientCoordinates[,4])),]
+        colnames(patientCoordinates) <- c("ID","PCA","LDA","Type","Influence")
+        for(i in 1:nrow(patientCoordinates)){
+          patientCoordinates[i,4] <- ifelse(patientCoordinates[i,3]>0,"High Risk","Low Risk")
         }
-      }
-      fl <- flex1()
-      temp1 <- patdata()
-      temp1 <- temp1[,-1]
-      fl <- c(fl[,1],1000)
-      
-      temp1 <- cbind(fl,temp1)
-      colnames(temp1)[1] <- "ID"
-      temp4 <- subset(temp1,temp1$ID == pno)
-      act2 <- subset(temp4,select = a12)
-      final2 <- cbind(t(act2),final1)
-      final2[,4] <- rownames(final2)
-      final3 <- final2[c(4,2,1,3)]
-      final3[,3] <- as.numeric(final3[,3])
-      final3[,2] <- as.numeric(final3[,2])
-      final3[,4] <- as.numeric(final3[,4])
-      colnames(final3)[1] <- "Variable"
-      colnames(final3)[2] <- "Minumum"
-      colnames(final3)[3] <- "Actual"
-      colnames(final3)[4] <- "Maximum"
-      for (i in 1:nrow(final3)) {
-        if (final3[i,2] == 1) {
-          final3[i,2] = 100
-        }
-        if (final3[i,3] == 1) {
-          final3[i,3] = 100
-        }
-      }
-      gvisColumnChart(final3,options = list(height = 500,legend = "none",series = "[{color:'#FF4000'},{color:'#0073B7'},{color:'#FF0000'}]"))
-      
+        colorSet <- getClusterColors(patientCoordinates)
+        patientCoordinates <- patientCoordinates[,-5]
+        patientCoordinates <- patientCoordinates[order(patientCoordinates[,4]),]
+      })
+      withProgress(message = 'Generating Plot',value=0.1,{
+      Sys.sleep(1.25)
+        popGraph <- gvisBubbleChart(patientCoordinates,colorvar = "Type",
+                                    options = list(height = 800, sizeAxis ='{minValue:0,  maxSize:5}',
+                                                   vAxis = "{title:'<- Low Risk Region.................High Risk Region ->',minValue:-2,  maxValue:2}",
+                                                   hAxis = "{title: 'Population Variation', minValue:-2,  maxValue:2}",
+                                                   title = "Population Plot", colors = colorSet,
+                                                   legend='none'))
+      })
+      popGraph
     }
   })
   
   
+  #################################################################################################################
+  # functions of the k means cluster view
+  #################################################################################################################
   
-  #Plot to show where one patient is with respect to other patients in terms of risk
-  output$popv <- renderGvis({
-    temp1 <- slide()
-    siz <- slide2()
-    anch2 <- anch1()
-    temp11 <- temp1[,c(1,ncol(temp1) - 1,ncol(temp1))]
-    temp11[,4] <- 0.1
-    colnames(temp11)[1] <- "ID"
-    colnames(temp11)[2] <- "x"
-    colnames(temp11)[3] <- "y"
-    colnames(temp11)[4] <- "size"
-    
-    temp11$size <- temp11$size / 100000000
-    
-    for (i in 1:nrow(temp11)) {
-      if (temp11[i,3] > 0) {
-        temp11[i,5] <- 'High Risk Patients'
-      }
-      else{
-        temp11[i,5] <- 'Low Risk Patients'
-      }
-    }
-    
-    colnames(temp11)[5] <- 'color'
-    
-    temp22 <- anch2
-    temp22 <- temp22[,-1]
-    colnames(temp22)[1] <- "ID"
-    colnames(temp22)[2] <- "x"
-    colnames(temp22)[3] <- "y"
-    colnames(temp22)[4] <- "size"
-    temp22[,5] <- 'Anchors'
-    colnames(temp22)[5] <- "color"
-    
-    if(siz == 100){
-      temp33 <- temp22 
-    } else{
-      temp33 <- rbind(temp11,temp22)
-    }
-    for(i in 1:nrow(temp33)){
-      temp33[i,2] <- -1*as.numeric(temp33[i,2])
-    }
-    
-    if(siz >= 98 & siz < 100){
-      bub <- gvisBubbleChart(
-        temp33, idvar = "ID",
-        xvar = "x", yvar = "y",
-        colorvar = "color",sizevar = "size",
-        options = list(
-          width = 800, height = 600,bubble.textStyle = '{fontSize : 1}',
-          vAxis = "{title:'Low Risk Region...................High Risk Region'}",
-          colors = "['#FE642E', '#819FF7']"
-        )
-      )
-    }
-    if(siz <98){
-      bub <- gvisBubbleChart(
-        temp33, idvar = "ID",
-        xvar = "x", yvar = "y",
-        colorvar = "color",sizevar = "size",
-        options = list(
-          width = 800, height = 600,bubble.textStyle = '{fontSize : 1}',
-          vAxis = "{title:'Low Risk Region...................High Risk Region'}",
-          colors = "['#58FA82','#FE642E', '#819FF7']"
-        )
-      )
-      
-    }
-    if(siz == 100){
-      bub <- gvisBubbleChart(
-        temp33, idvar = "ID",
-        xvar = "x", yvar = "y",
-        colorvar = "color",sizevar = "size",
-        options = list(
-          width = 800, height = 600,bubble.textStyle = '{fontSize : 1}',
-          vAxis = "{title:'Low Risk Region...................High Risk Region'}",
-          colors = "['#819FF7']"
-        )
-      )
-    }
-    bub
+  getk <- reactive({
+    input$k
   })
   
-  #Plot to show where one patient is with respect to other patients in terms of risk
-  output$popv1 <- renderGvis({
-    pno <- patientID()
-    temp1 <- slideStatic()
-    siz <- 1
-    anch2 <- anch1()
-    temp11 <- temp1[,c(1,ncol(temp1) - 1,ncol(temp1))]
-    temp12 <- temp1[,c(1,ncol(temp1) - 1,ncol(temp1))]
-    
-    temp11[,4] <- 0.1
-    colnames(temp11)[1] <- "ID"
-    colnames(temp11)[2] <- "x"
-    colnames(temp11)[3] <- "y"
-    colnames(temp11)[4] <- "size"
-    
-    temp12[,4] <- 0.1
-    temp12[,5] <- "Selected Patient"
-    colnames(temp12)[1] <- "ID"
-    colnames(temp12)[2] <- "x"
-    colnames(temp12)[3] <- "y"
-    colnames(temp12)[4] <- "size"
-    colnames(temp12)[5] <- 'color'
-    
-    temp11$size <- temp11$size / 100000000
-    temp12$size <- temp12$size / 100000000
-    temp12 <- temp12[temp12[1] == pno]
-    for (i in 1:nrow(temp11)) {
-      if (temp11[i,3] > 0) {
-        temp11[i,5] <- 'High Risk Patients'
-      }
-      else{
-        temp11[i,5] <- 'Low Risk Patients'
-      }
-    }
-    temp11 <- temp11[!temp11[1]==pno,]
-    colnames(temp11)[5] <- 'color'
-    
-    vit <- vital()
-    #edit <- edit()
-    
-    temp22 <- anch2
-    temp22 <- temp22[,-1]
-    colnames(temp22)[1] <- "ID"
-    colnames(temp22)[2] <- "x"
-    colnames(temp22)[3] <- "y"
-    colnames(temp22)[4] <- "size"
-    temp22[,5] <- 'Anchors'
-    colnames(temp22)[5] <- "color"
-    
-    #temp22$size <- temp22$size*2
-    if(siz == 100){
-      temp33 <- temp22 
-    } else{
-      temp33 <- rbind(temp12,temp11)
-      temp33 <- rbind(temp33,temp22)
-    }
-    colnames(vit) <- c("ID")
-    #colnames(edit) <- c("ID")
-    temp44 <- temp33[temp33$ID %in% vit$ID,]
-    #temp55 <- temp33[temp33$ID %in% edit$ID,]
-    #temp44 <- rbind(temp44,temp55)
-    temp44 <- unique(temp44)
-    temp44[,5] <- "Vital Variables"
-    temp33 <- subset(temp33, ! (ID %in% vit$ID))
-    #temp33 <- subset(temp33, ! (ID %in% edit$ID))
-    temp33 <- rbind(temp33,temp44)
-    for(i in 1:nrow(temp33)){
-      temp33[i,2] <- -1*as.numeric(temp33[i,2])
-    }
-    if(siz >= 50 & siz < 100){
-      bub <- gvisBubbleChart(temp33, options = list(
-          width = 700, height = 500,bubble.textStyle = '{fontSize : 1}',
-          vAxis = "{title:'Low Risk Region...................High Risk Region'}",
-          colors = "['#000000','#FE642E','#819FF7','#FF0000']"
-        )
-      )
-    }
-    if(siz <50){
-      bub <- gvisBubbleChart(
-        temp33, idvar = "ID",
-        xvar = "x", yvar = "y",
-        colorvar = "color",sizevar = "size",
-        options = list(
-          width = 700, height = 500,bubble.textStyle = '{fontSize : 1}',
-          vAxis = "{title:'Low Risk Region...................High Risk Region'}",
-          colors = "[ '#000000','#58FA82','#FE642E','#819FF7','#FF0000']"
-        )
-      )
-      
-    }
-    if(siz == 100){
-      bub <- gvisBubbleChart(
-        temp33, idvar = "ID",
-        xvar = "x", yvar = "y",
-        colorvar = "color",sizevar = "size",
-        options = list(
-          width = 700, height = 500,bubble.textStyle = '{fontSize : 1}',
-          vAxis = "{title:'Low Risk Region...................High Risk Region'}",
-          colors = "['#819FF7','#FF0000']"
-        )
-      )
-    }
-    bub
-  })
-  
-  
-  #Final set of input widgets to select the values to represent change.
-  output$alltext <- renderUI({
-    edi2 <- edit()
-    if(length(edi2)==0){
-      textOutput('Please Select the Modifiable Variables')
+  output$kMeansClusterPlot <- renderGvis({
+    k <- getk()
+    if(is.null(k)){
+      textOutput("")
     }
     else{
-    allv <- c(edi2[,1])
-    allv <- unique(allv)
-    
-    fl <- flex1()
-    temp1 <- patdata()
-    temp1 <- temp1[,-1]
-    fl <- c(fl[,1],1000)
-    
-    temp1 <- cbind(fl,temp1)
-    colnames(temp1)[1] <- "ID"
-    pno <- patientIDInspect()
-    
-    temp2 <- subset(temp1,temp1$ID == pno,select = allv)
-    temp3 <- subset(temp1,temp1$ID == 1000,select = allv) 
-    temp2 <- rbind(temp2,temp3)
-    print(temp2)
-    temp6 <- patdata()
-    temp6 <- temp6[,-1]
-    temp7 <- subset(temp6, select = allv)
-
-    temps2 <- temp2
-    temp10 <<- temps2
-    print(temp10)
-    lapply(1:ncol(temp10), function(i) {
-      if(nrow(temp6) == 589){
-        if (temp10[2,i] == 0) {
-          textInput(paste("finedit1",i,sep = "_"), label = paste(colnames(temp10)[i]," | Actual :",temp10[1,i],sep =""), value = temp10[1,i])
+      withProgress(message = 'Getting required Data',value=0.1,{
+        Sys.sleep(0.25)
+        inputData <- patientData()
+        IDCol <- inputData[,1]
+        outputCol <- inputData[,ncol(inputData)]
+        selectedRiskVariables <- riskVariables()
+        riskData <- subset(inputData, select = selectedRiskVariables)
+        patientCoordinates <- getPatientCoordinates(riskData,IDCol,outputCol)
+        riskData <- getScaledInput(riskData)
+        fit <- kmeans(riskData, k)
+        patientCoordinates[,4] <- as.character(fit$cluster)
+        patientCoordinates <- patientCoordinates[order(as.character(patientCoordinates[,4])),]
+        colnames(patientCoordinates) <- c("ID","PCA","LDA","Cluster","Influence")
+        patientCoordinates <- patientCoordinates[,-5]
+      })
+      withProgress(message = 'Generating Plot',value=0.1,{
+        Sys.sleep(1.25)
+        popGraph <- gvisBubbleChart(patientCoordinates,colorvar = "Cluster",
+                                    options = list(width = 1300, height = 800, vAxis='{minValue:-2,  maxValue:2}',
+                                                   hAxis='{minValue:-2,  maxValue:2}',
+                                                   title = "Population Plot",
+                                                   vAxis = "{title:'<- Low Risk Region.................High Risk Region ->'}",
+                                                   hAxis = "{title: 'Population Variation'}",
+                                                   legend='none'))
+      })
+      popGraph
+    }
+  })
+  
+  #################################################################################################################
+  # functions of Patient View
+  #################################################################################################################
+  
+  # Display Text Input for users to enter Patient ID
+  output$inputPatientID <- renderUI({
+    inputData <- getinputData()
+    # display the patient ID of the first patient by default
+    firstPatientID <- inputData[1,1]
+    textInput("patientIDInput", label = "Enter Patient ID", value = firstPatientID)
+  })
+  
+  # function that gets the updated patient ID that is entered
+  getPatientID <- reactive({
+    input$patientIDInput
+  })
+  
+  output$patientGraph <- renderGvis({
+    patientID <- getPatientID()
+    riskVariables <- getRiskVariables()
+    if(is.null(patientID) || is.null(riskVariables)){
+      textOutput("")
+    }
+    else{
+      withProgress(message = 'Getting required Data',value=0.1,{
+        monitoredVariables <- getMonitoredVariables()
+        inputData <- getinputData()
+        riskData <- subset(inputData,select = riskVariables)
+        inputColType <- getColType(riskData)
+        riskData <- getNumericalInputData(riskData)
+        IDCol <- inputData[,1]
+        outputVariable <- getOutputVariable()
+        outputCol <- inputData[,which(colnames(inputData)==outputVariable)]
+        patientCoordinates <- getPatientCoordinates(riskData,IDCol,outputCol)
+        anchorCoordinates <- getPatAnchorCoordinates(riskData,IDCol,outputCol,patientID,inputColType,monitoredVariables)
+        combinedCoordinates <- rbind(patientCoordinates,anchorCoordinates)
+        combinedCoordinates[,4] <- as.character(combinedCoordinates[,4])
+        combinedCoordinates[combinedCoordinates[,1]==patientID,4] <- "Selected Patient"
+        combinedCoordinates <- combinedCoordinates[order(as.character(combinedCoordinates[,4])),]
+        colnames(combinedCoordinates) <- c("ID","PCA","LDA","Type","Influence")
+      })
+      if("Monitored Feature" %in% unique(combinedCoordinates$Type)){
+        withProgress(message = 'Getting required Data',value=0.1,{
+          output <- gvisBubbleChart(combinedCoordinates,sizevar = "Influence",colorvar = "Type",
+                                  options = list(height = 700,
+                                                 title = "Patient View",
+                                                 vAxis = "{title:'<- Low Risk Region.................High Risk Region ->'}",
+                                                 hAxis = "{title: 'Population Variation'}",
+                                                 colors = "['#819FF7','#FE642E','#58FA82','#FF69B4','#000000']"))
+        })
       }
       else{
-        if (temp2[1,i] == 1) {
-          sel = 1
-          selval = "Yes"
-        }
-        else{
-          sel = 2
-          selval = "No"
-        }
-        selectInput(paste("finedit2",i,sep = "_"), label = paste(colnames(temp10)[i]," | Actual : ",selval,sep = ""), choices = list("Yes" = 1, "No" = 2),selected = sel)
-      }
-      }
-      else{
-        if (temp10[3,i] == 0) {
-          textInput(paste("finedit1",i,sep = "_"), label = paste(colnames(temp10)[i]," | Actual :",temp10[1,i],sep =""), value = temp10[1,i])
-        }
-        else{
-          if (temp2[1,i] == 1) {
-            sel = 1
-            selval = "Yes"
-          }
-          else{
-            sel = 2
-            selval = "No"
-          }
-          selectInput(paste("finedit2",i,sep = "_"), label = paste(colnames(temp10)[i]," | Actual : ",selval,sep = ""), choices = list("Yes" = 1, "No" = 2),selected = sel)
+        withProgress(message = 'Getting required Data',value=0.1,{
+          output <- gvisBubbleChart(combinedCoordinates,sizevar = "Influence",colorvar = "Type",
+                                options = list(height = 700,
+                                               title = "Patient View",
+                                               vAxis = "{title:'<- Low Risk Region.................High Risk Region ->'}",
+                                               hAxis = "{title: 'Population Variation'}",
+                                               colors = "['#819FF7','#FE642E','#58FA82','#000000']"))
+          })
         }
       }
     })
-  }})
+  
+  # Display a histogram showing comparison of actual and Ideal values for numerical columns
+  output$actualIdealHist <- renderGvis({
+    # get the patient ID of the selected patient
+    patientIDSelected <- getPatientID()
+    monitoredVariables <- getMonitoredVariables()
+    # patient ID or selected Variables are null, display blank
+    if(is.null(patientIDSelected) || is.null(monitoredVariables)){textOutput("")}
+    # the variables are not null
+    else{
+      inputData <- getinputData()
+      inputCols <- colnames(inputData)
+      # get the ideal values entered by calling the helper function
+      idealValues <- getIdealValues(inputData)
+      # select only numerical values -> ones where ideal cat is ""
+      idealValues <- idealValues[idealValues[,3]=="",c(1,2)]
+      # get the set of selected variables
+      monitoredVariables <- getMonitoredVariables()
+      # add Patient ID to the selected variables
+      monitoredVariables <- c(monitoredVariables,inputCols[1])
+      # select only the columns selected for monitoring
+      selectedSubset <- subset(inputData,select = monitoredVariables)
+      # get column type of each column
+      subsetColType <- getColType(selectedSubset)
+      # select the numerical columns
+      selectedSubset <- subset(selectedSubset,select = which(subsetColType=="Numerical"))
+      # get the Patient's record of the selected columns
+      actualVals <- unlist(selectedSubset[selectedSubset[,ncol(selectedSubset)]==patientIDSelected,])
+      actualVals <- actualVals[-length(actualVals)]
+      variables <- row.names(idealValues)
+      minimumVals <- idealValues[,1]
+      maximumVals <- idealValues[,2]
+      # dataframe combining all columns
+      actualVsThreshold <- data.frame(variables,minimumVals,actualVals,maximumVals)
+      colnames(actualVsThreshold) <- c("Variable","Minimum","Actual","Maximum")
+      gvisColumnChart(actualVsThreshold,
+                        options = list(height = 500,series = "[{color:'#3c8dbc'},{color:'#dc3912'},{color:'#228b22'}]"))
+    }
+  })
+  
+  # dispaly a datatable that shows a comparison of actual and Ideal values
+  output$actualIdealTable <- renderDataTable({
+    # get the ID of patient selected
+    patientIDSelected <- getPatientID()
+    # get the set of variables selected to monitor
+    monitoredVariables <- getMonitoredVariables()
+    # if Patient ID or Variables selected are none, display blank
+    if(is.null(monitoredVariables) || is.null(patientIDSelected)){output <- data.frame()}
+    # if selected variables are not blank
+    else{
+      inputData <- getinputData()
+      inputCols <- colnames(inputData)
+      inputColType <- getColType(inputData)
+      # get the data of the selected patient
+      inputData <- inputData[inputData[,1] == patientIDSelected,]
+      actualVals <- unlist(inputData)
+      for(i in 1:length(inputColType)){
+        if(inputColType[i]=="Numerical"){
+          actualVals[i] <- round(as.numeric(actualVals[i]),2)
+        }
+      }
+      # get the ideal values using the helper function
+      idealValues <- getIdealValues(inputData)
+      # create a dataframe of actual values and dummy column for ideal values
+      outputData <- data.frame(actualVals,rep("",length(inputCols)),stringsAsFactors=FALSE)
+      colnames(outputData) <- c("Actual", "Ideal")
+      for(i in 1:nrow(outputData)){
+        # if column is Categorical
+        if(inputColType[i] == "Categorical"){
+          # if value is 0, display No
+          if(outputData[i,2]==0){outputData[i,1] <- 'No'}
+          # if value is 1, display Yes
+          else{outputData[i,1] <- 'Yes'}
+        }
+      }
+      for(i in 1:nrow(outputData)){
+        # get the ith columnname
+        entry <- row.names(outputData)[i]
+        # if the vale is part of column that is selected to be monitored
+        if(entry %in% row.names(idealValues)){
+          # If it is a categorical Column -> when ideal Cat is ""
+          if(idealValues[entry,]$idealCat!=""){
+            # display the value in the idealCat column
+            outputData[i,2] <- as.character(idealValues[entry,]$idealCat)}
+          # if it is numerical Column
+          else{
+            # get the mnimum and maximum values
+            minimum <- as.character(idealValues[entry,]$minimumVals)
+            maximum <- as.character(idealValues[entry,]$maximumVals)
+            # if minimum is 0, display <maximum
+            if(minimum==0){outputData[i,2] <- paste("<=",maximum)}
+            # if maximum is 0, display > minimum
+            else if(maximum==0){outputData[i,2] <- paste(">=",minimum)}
+            # if both exist, display minimum - maximum
+            else{outputData[i,2] <- paste(minimum,"-",maximum)}
+          }
+        }
+      }
+      # remove the ID column
+      outputData <- outputData[-1,]
+      # reorder the dataframe to show the monitored column on top
+      outputData <- outputData[order(outputData[,2],decreasing = TRUE),]
+      output <- DT::datatable(data = outputData,class = 'cell-border stripe',options = list(searching = FALSE,lengthChange = FALSE,
+            # call Javascript code to give color codes based on actual and ideal values
+            rowCallback = DT::JS('function(row,data){
+                          //If selected variable is Categorical and Ideal is equal to actual => highlight in green
+                          if(data[2]!= "" && data[1] == data[2] && isNaN(parseFloat(data[1]))){$("td", row).css("background", "#83F52C");}
+                          //If selected variable is Categorical and Ideal is not equal to actual => highlight in green
+                           else if(data[2]!= "" && data[1] != data[2] && isNaN(parseFloat(data[1]))){$("td", row).css("background", "#ff7f7f");}
+                           // If data is numeric
+                           else if(data[2]!=""){
+                              // If it contains < Symbol
+                              if(data[2].indexOf("&lt;")>=0){
+                                var maximum = parseFloat(data[2].split("=")[1])
+                                if(parseFloat(data[1])<=maximum){$("td", row).css("background", "#83F52C");}
+                                else{$("td", row).css("background", "#ff7f7f");}
+                              }
+                              // If it contains > Symbol
+                              else if(data[2].indexOf("&gt;")>=0){
+                                var minimum = parseFloat(data[2].split("=")[1])
+                                if(parseFloat(data[1])>=minimum){$("td", row).css("background", "#83F52C");}
+                                else{$("td", row).css("background", "#ff7f7f");}
+                              }
+                              // If it contains - Symbol
+                              else if(data[2].indexOf("-")>=0){
+                                var minimum = parseFloat(data[2].split("-")[0])
+                                var maximum = parseFloat(data[2].split("-")[1])
+                                var actual = parseFloat(data[1])
+                                if(actual>=minimum && actual <= maximum){$("td", row).css("background", "#83F52C");}
+                                else{$("td", row).css("background", "#ff7f7f");}
+                              }
+                            }
+                           }')))
+      }
+  })
+  
+  
+  #################################################################################################################
+  # functions in the Intervention View
+  #################################################################################################################
+  
+  output$modifiableVariableSelection <- renderUI({
+    riskVariables <- getRiskVariables()
+    checkboxGroupInput("modifiableVariables", "Choose columns", choices  = riskVariables)
+  })
+  
+  getModifiableVariables <- reactive({
+    input$modifiableVariables
+  })
+  
+  # Display Text Input for users to enter Patient ID
+  output$interventionPatientID <- renderUI({
+    patientID <- getPatientID()
+    if(is.null(patientID)){
+      inputData <- getinputData()
+      patientID <- inputData[1,1]
+    }
+    textInput("interventionPatientIDInput", label = "Enter Patient ID", value = patientID)
+  })
+  
+  getInterventionPatientID <- reactive({
+    input$interventionPatientIDInput
+  })
+  
+  output$interventionfields <- renderUI({
+    modifableVariables <- getModifiableVariables()
+    patientID <- getInterventionPatientID()
+    if(is.null(modifableVariables) || is.null(patientID)){
+      textOutput("")
+    }
+    else{
+      inputData <- getinputData()
+      inputData <- inputData[inputData[,1]==patientID,]
+      inputColType <- getColType(inputData)
+      output <- lapply(1:length(modifableVariables), function(i) {
+          colType <- inputColType[which(colnames(inputData)==modifableVariables[i])]
+          actualval <- inputData[,which(colnames(inputData)==modifableVariables[i])]
+          if(colType=="Numerical"){
+            numericInput(paste("modifiable",i,sep = "_"), label = paste(modifableVariables[i]," | Actual : ",round(as.numeric(actualval),2)), value = round(as.numeric(actualval),2),min = 0,max = 1000)
+          }
+          else{
+            selectInput(paste("modifiable",i,sep = "_"),label = paste(modifableVariables[i]," | Actual : ",actualval), c("Yes" = 1,"No" = 0),selected = actualval)
+          }
+        })
+      output
+    }
+  })
+  
+  getInterventionValues <- function(modifableVariables){
+    interventionValues <- numeric()
+    for(i in 1:length(modifableVariables)){
+      interventionValues <- c(interventionValues,eval(parse(text = paste("input$modifiable_",i,sep = ""))))
+    }
+    interventionValues
+  }
+  
+  getPatIntCoords <- eventReactive(input$interventionButton,{
+    patientID <- getInterventionPatientID()
+    modifableVariables <- getModifiableVariables()
+    if(is.null(patientID) || is.null(modifableVariables)){
+      return(NULL)
+    }
+    else{
+      interventionValues <- getInterventionValues(modifableVariables)
+      inputData <- getinputData()
+      inputData <- getNumericalInputData(inputData)
+      IDcol <- inputData[,1]
+      patientRow <- inputData[which(IDcol==patientID),]
+      newPatientRow <- patientRow
+      for(i in 1:length(modifableVariables)){
+        newPatientRow[,which(colnames(newPatientRow)==modifableVariables[i])] <- interventionValues[i]
+      }
+      inputData <- rbind(inputData,newPatientRow)
+      outputCol <- inputData[,ncol(inputData)]
+      inputData <- data.frame(data.matrix(inputData))
+      inputData <- as.data.frame(scale(inputData))
+      riskVariables <- getRiskVariables()
+      riskData <- subset(inputData,select = riskVariables)
+      PCALDA <- getPCALDA(riskData,outputCol)
+      patientCoords <- as.matrix(riskData) %*% as.matrix(PCALDA)
+      # scale patient Coordinates between -1 and 1
+      patientCoords[,1] <- scaleColumn(patientCoords[,1],-1,1)
+      patientCoords[,2] <- scaleColumn(patientCoords[,2],-1,1)
+      oldPatientVals <- patientCoords[which(IDcol==patientID),]
+      newPatientVals <- patientCoords[nrow(patientCoords),]
+      oldValCoords <- matrix(c("Old",oldPatientVals[1],oldPatientVals[2],"Old",10),nrow = 1)
+      newValCoords <- matrix(c("New",newPatientVals[1],newPatientVals[2],"New",10),nrow = 1)
+      userCoords <- as.data.frame(rbind(oldValCoords,newValCoords),stringsAsFactors = FALSE)
+      for( i in 1:nrow(userCoords)){
+        userCoords[i,4] <- ifelse(as.numeric(userCoords[i,3])>0,"High Risk","Low Risk")
+      }
+      colnames(userCoords) <- c("ID","X","Y","Color","Size")
+      return(userCoords)
+    }
+  })
+  
+  output$interventionPlot <- renderGvis({
+    patIntCoords <- getPatIntCoords()
+    if(is.null(patIntCoords)){
+      textOutput("")
+    }
+    else{
+      monitoredVariables <- getMonitoredVariables()
+      inputData <- getinputData()
+      inputData <- getNumericalInputData(inputData)
+      outputCol <- inputData[,ncol(inputData)]
+      riskVariables <- getRiskVariables()
+      riskData <- subset(inputData,select = riskVariables)
+      anchorCoordinates <- getVarSclaedAnchorCoordinates(riskData,outputCol,monitoredVariables)
+      combinedCoordinates <- rbind(anchorCoordinates,patIntCoords)
+      colnames(combinedCoordinates) <- c("ID","PCA","LDA","Type","Influence")
+      intColors <- getIntColors(combinedCoordinates)
+      combinedCoordinates <- combinedCoordinates[order(as.character(combinedCoordinates[,4])),]
+      output <- gvisBubbleChart(combinedCoordinates,sizevar = "Influence",colorvar = "Type",
+                                options = list(height = 1000,title = "Intervention View",colors = intColors,
+                                               vAxis = "{title:'<---   Low Risk Region.................High Risk Region   --->'}",
+                                               hAxis = "{title: 'Population Variation'}"))
+    }
+  })
+  
+  
+  #################################################################################################################
+  # functions in the prediction view
+  #################################################################################################################
+  
+  output$logRegConfMat <- renderDataTable({
+    inputData <- patientData()
+    split=0.80
+    nf <- ncol(inputData)
+    trainIndex <- createDataPartition(as.factor(unlist(inputData[nf])), p=split, list=FALSE)
+    data_train <- inputData[trainIndex,]
+    data_test <- inputData[-trainIndex,]
+    train.y<-colnames(data_train)[nf]
+    formula<-paste(train.y," ~. -", train.y)
+    model <- NaiveBayes(as.formula(formula), data=data_train)
+    x_test <- data_test[,-nf]
+    predictions <- predict(model, x_test)
+    y_test <- data_test[,nf]
+    a <- confusionMatrix(predictions$class, y_test)
+    a
+  })
+  
+  
+  #################################################################################################################
+  # helper functions
+  #################################################################################################################
+  
+  # function to get column type of each column, return a vector of column types
+  getColType <- function(inputData){
+    #check if each column is numerical or not
+    isNumeric <- as.character(sapply(inputData,is.numeric))
+    colType <- mapvalues(isNumeric,c("TRUE","FALSE"),c("Numerical","Categorical"))
+    return(colType)
+  }
+  
+  # function to convert categorical column categorical columns from Yes,No to 1,0
+  getNumericalInputData <- function(inputData){
+    inputColType <- getColType(inputData)
+    for(i in 1:length(inputColType)){
+      # if a column is categorical
+      if(inputColType[i]=="Categorical"){
+        # convert Yes -> 1, No -> 0
+        if("Male" %in% inputData[,i]){inputData[,i] <- ifelse(inputData[,i]=="Male",1,0)}
+        else{inputData[,i] <- ifelse(inputData[,i]=="Yes",1,0)}
+      }
+    }
+    return(inputData)
+  }
+  
+  getNumericSummary <- function(input.csv){
+    col.type <- as.character(sapply(input.csv,is.numeric))
+    numeric.data <- subset(input.csv,select = which(col.type=="TRUE"))
+    col.missing <- as.numeric(sapply(numeric.data, function(x){sum(is.na(x))}))
+    col.mean <- round(as.numeric(sapply(numeric.data,mean)),2)
+    col.median <- round(as.numeric(sapply(numeric.data, median)),2)
+    col.mode <- round(as.numeric(sapply(numeric.data, function(x){getMode(x)})),2)
+    col.sd <- round(as.numeric(sapply(numeric.data, sd)),2)
+    col.min <- round(as.numeric(sapply(numeric.data,min)),2)
+    col.max <- round(as.numeric(sapply(numeric.data, max)),2)
+    numeric.summary <- data.frame(colnames(numeric.data),col.missing,col.mean,col.median,col.mode,col.sd,col.min,col.max)
+    colnames(numeric.summary) <- c("Attribute","Missing","Mean","Median","Mode","SDev","Min","Max")
+    return(numeric.summary)
+  }
+  
+  # get the mode of a list
+  getMode <- function(v) {
+    uniqv <- unique(v)
+    uniqv[which.max(tabulate(match(v, uniqv)))]
+  }
+  
+  getCategoricSummary <- function(input.csv){
+    col.type <- as.character(sapply(input.csv,is.numeric))
+    categoric.data <- subset(input.csv,select = which(col.type=="FALSE"))
+    col.missing <- as.numeric(sapply(categoric.data, function(x){sum(is.na(x))}))
+    col.arity <- as.numeric(sapply(categoric.data, function(x){length(unique(x))}))
+    mcv.count <- as.character(sapply(categoric.data, function(x){
+      cat.combined <- character()
+      cat.count <- data.frame(table(x))
+      cat.prop <- data.frame(prop.table(table(x))*100)
+      cat.prop[,2] <- round(cat.prop[,2],2)
+      cat.count <- head(cat.count[order(cat.count[,2],decreasing = TRUE),],3)
+      cat.prop <- head(cat.prop[order(cat.prop[,2],decreasing = TRUE),],3)
+      cat.combined <- c(cat.combined,paste(cat.count[,1],"(",cat.count[,2],"[",cat.prop[,2],"%])",sep=""))
+      return(toString(cat.combined))
+    }))
+    categoric.summary <- data.frame(colnames(categoric.data),col.missing,col.arity,mcv.count)
+    colnames(categoric.summary) <- c("Attribute","Missing","Arity","Top Levels")
+    return(categoric.summary)
+  }
+  
+  # function used to get subset of all numerical columns
+  getNumericalData <- function(inputData){
+    inputColType <- getColType(inputData)
+    # select the subset of columns which are numerical
+    numericalData <- subset(inputData,select = which(inputColType=="Numerical"))
+    return(numericalData)
+  }
+  
+  # function used to get subset of all categorical columns
+  getCategoricalData <- function(inputData){
+    inputColType <- getColType(inputData)
+    # select the subset of columns which are categorical
+    categoricalData <- subset(inputData,select = which(inputColType=="Categorical"))
+    return(categoricalData)
+  }
+  
+  getPCALDA <- function(inputData,outputCol){
+    nf <- ncol(inputData)
+    # PCA output
+    pcaOutput <- prcomp(cbind(inputData,outputCol)[,-(nf+1)], center = FALSE, scale. = FALSE, retx = TRUE)
+    # run LDA on data
+    ldaOutput <- lda(inputData,outputCol)
+    # get the combination of first principal component and 1st LDA => 
+    # dimension of output will be (no. of input Cols) x (2) 
+    PCALDA <- cbind((-1 * pcaOutput$rotation[,1]), ldaOutput$scaling)
+    return(PCALDA)
+  }
+  
+  # function that will scale a vector between low and high
+  # input -> inputColumn (vector), low(numeric), high (numeric)
+  # output -> scaled vector
+  scaleColumn <- function(inputColumn,low,high){
+    # calculate min and max of the vector
+    maxVal <- max(inputColumn)
+    minVal <- min(inputColumn)
+    if(maxVal == minVal){
+      avgVal <- mean(inputColumn) 
+      inputColumn <- rep(avgVal,length(inputColumn))
+    }
+    # scale values between low and high
+    else{
+      inputColumn <- low + (((high - low)*(inputColumn - minVal))/(maxVal - minVal))
+    }
+    return(inputColumn)
+  }
+  
+  getPatientCoordinates <- function(inputData,IDCol,outputCol){
+    # scale the values
+    inputData <- as.data.frame(scale(inputData))
+    PCALDA <- getPCALDA(inputData,outputCol)
+    patientCoordinates <- as.data.frame(as.matrix(inputData) %*% PCALDA)
+    # scale all patient coordinates within the range of -1 to 1
+    patientCoordinates[,1] <- scaleColumn(patientCoordinates[,1],-1,1)
+    patientCoordinates[,2] <- scaleColumn(patientCoordinates[,2],-1,1)   
+    # set the color of everyone above 0 in y axis as high risk and others as low risk
+    color <- ifelse(patientCoordinates[,2]>0,"High Risk","Low Risk")
+    # combine ID, coordinates, color and size columns, size is 1 for all patients
+    patientCoordinates <- cbind(IDCol,patientCoordinates,color,rep(1,nrow(patientCoordinates)))
+    colnames(patientCoordinates) <- c("ID","X","Y","Color","Size")
+    return(patientCoordinates)
+  }
+  
+  
+  getVarSclaedAnchorCoordinates <- function(riskData,outputCol,monitoredVariables){
+    # scale the values
+    riskData <- as.data.frame(scale(riskData))
+    PCALDA <- getPCALDA(riskData,outputCol)
+    x <- PCALDA[,1]
+    y <- PCALDA[,2]
+    # calculate angle of each data point = > tanInverse(y/x)
+    theta <- atan(y / x)
+    # the actual projects on the circle will be => 
+    # x axis => cos(theta) and y axis is sign of (theta)
+    # sign will determine the direction and 1.7 is the radius
+    anchorCoordinates <- data.frame(sign(x) * 1.7 * abs(cos(theta)),sign(y) * 1.7 * abs(sin(theta)))
+    # sizes of anchors are calculated as <- sqrt(LDA^2 + PCA^2) 
+    anchorSize <- sqrt(x^2 + y^2)
+    # scale anchor size to range 1 - 30
+    anchorSize <- round(scaleColumn(anchorSize,1,30),0)
+    # add the ID column, color and size
+    anchorType <- rep("Feature",nrow(anchorCoordinates))
+    anchorType[which(colnames(riskData) %in% monitoredVariables)] <- "Monitored Feature"
+    anchorCoordinates <- cbind(row.names(PCALDA),anchorCoordinates,anchorType,anchorSize)
+    colnames(anchorCoordinates) <- c("ID","X","Y","Color","Size")
+    return(anchorCoordinates)
+  }
+  
+  getSelectedPatientCoordinates <- function(riskData,IDCol,outputCol,sliderSelected){
+    # order input Data by Y axis
+    patientCoordinates <- getPatientCoordinates(riskData,IDCol,outputCol)
+    selectedPatientCoordinates <- patientCoordinates[order(patientCoordinates[,3],decreasing = TRUE),]
+    lastRow <- round(nrow(riskData)*(1-(sliderSelected/100)),0)
+    selectedPatientCoordinates <- selectedPatientCoordinates[1:lastRow,]
+    return(selectedPatientCoordinates)
+  }
+  
+  # function that captures the ideal values that are entered
+  getIdealValues <- function(inputData){
+    inputCols <- colnames(inputData)
+    # get the column type of each column
+    inputColType <- getColType(inputData)
+    # get the set of selected variables
+    monitoredVariables <- getMonitoredVariables()
+    lengthSelected <- length(monitoredVariables)
+    # create a dummy array of 0s for minimum and maximum values
+    minimumVals <- rep(0,lengthSelected)
+    maximumVals <- rep(0,lengthSelected)
+    # create a dummy array of "" for ideal category of selected variables
+    idealCat <- rep("",lengthSelected)
+    for(i in 1:length(monitoredVariables)){
+      # get the column type of selected variable
+      colType <- inputColType[which(inputCols==monitoredVariables[i])]
+      # if column type is numerical
+      if(colType=="Numerical"){
+        # extarct the informarion in the inut tabs and add to minimum and maximum arrays
+        eval(parse(text = paste("minimumVals[",i,"] <- input$minimum_",i,sep = "")))
+        eval(parse(text = paste("maximumVals[",i,"] <- input$maximum_",i,sep = "")))
+      }
+      # if column is categorical
+      else{
+        # extract the selected category and add to idealCat vector
+        eval(parse(text = paste("idealCat[",i,"] <- input$idealCat_",i,sep = "")))
+      }
+    }
+    # make a dataframe combining minimum, maximum and ideal Category return that
+    idealValsData <- data.frame(minimumVals,maximumVals,idealCat)
+    row.names(idealValsData) <- monitoredVariables
+    return(idealValsData)
+  }
+  
+  getPatAnchorCoordinates <- function(inputData,IDCol,outputCol,patientID,inputColType,monitoredVariables){
+    # scale the values
+    inputData <- as.data.frame(scale(inputData))
+    inputCols <- colnames(inputData)
+    nf <- ncol(inputData)
+    PCALDA <- getPCALDA(inputData,outputCol)
+    x <- PCALDA[,1]
+    y <- PCALDA[,2]
+    # calculate angle of each data point = > tanInverse(y/x)
+    theta <- atan(y / x)
+    # the actual projects on the circle will be => 
+    # x axis => cos(theta) and y axis is sign of (theta)
+    # sign will determine the direction and 1.7 is the radius
+    anchorCoordinates <- data.frame(sign(x) * 1.7 * abs(cos(theta)),sign(y) * 1.7 * abs(sin(theta)))
+    # sizes of anchors are calculated as <- sqrt(diagoinal(covariance matrix)) 
+    # add the ID column, color and size
+    anchorSize <- numeric()
+    patientRow <- inputData[which(IDCol==patientID),]
+    for(i in 1:nf){
+      colType <- inputColType[i]
+      if(colType=="Numerical"){
+        avgVal <- mean(inputData[,i])
+        actualVal <- as.numeric(patientRow[i])
+        if(actualVal>avgVal){
+          diff <- actualVal - avgVal
+          # adding 1 to make evrything above 1
+          diff <- round(diff,0)+1
+          anchorSize <- c(anchorSize,diff)
+        }
+        else{anchorSize <- c(anchorSize,1)}
+      }
+      else{anchorSize <- c(anchorSize,1)}
+    }
+    # scale anchorsize from 1 - 30
+    scaledColumns <- scaleColumn(anchorSize[which(anchorSize>1)],2,30) 
+    j <- 1
+    for(i in 1:length(anchorSize)){
+      if(anchorSize[i]>1){
+        anchorSize[i] <- scaledColumns[j]
+        j <- j+1
+      }
+    }
+    anchorType <- rep("Feature",nrow(anchorCoordinates))
+    anchorType <- character()
+    for(i in 1:length(inputCols)){
+      ifelse(inputCols[i] %in% monitoredVariables,anchorType <- c(anchorType,"Monitored Feature"),anchorType <- c(anchorType,"Feature"))
+    }
+    anchorCoordinates <- cbind(row.names(PCALDA),anchorCoordinates,anchorType,anchorSize)
+    colnames(anchorCoordinates) <- c("ID","X","Y","Color","Size")
+    return(anchorCoordinates)
+  }
+  
+  # get the column that is the highest risk for the patient
+  getMaxCol <- function(inputData,i,colType,colName,meanVals){
+    # get the patient row data
+    patientRow <- inputData[i,]
+    # get a blank vector for the patient values compared to average
+    patientVals <- numeric()
+    # for each column in risk Data
+    for(j in 1:length(colName)){
+      # if column type is categorical, 
+      if(colType[j] == 'Categorical'){patientVals <- c(patientVals,0)}
+      # if column type is numerical
+      else{
+        # get the patient value of the column
+        colVal <- as.numeric(patientRow[j])
+        # get the difference of column and mean of column
+        diff <- meanVals[j] - colVal
+        # add the difference to patientvals
+        patientVals <- c(patientVals,diff)
+      }
+    }
+    # if max column is 0, return as 0
+    if(max(patientVals)==0){ maxCol <- "0" }
+    # if not return the column with mamum value
+    else{ maxCol <- colName[which.max(patientVals)] }
+    return(maxCol)
+  }
+  
+  # function to get combnation of PCA and LDA
+  getPCALDAoutput <- function(inputData,outputCol){
+    # scale the values
+    inputData <- as.data.frame(scale(inputData))
+    nf <- ncol(inputData)
+    # PCA output
+    pcaOutput = prcomp(cbind(inputData,outputCol)[,-(nf+1)], center = FALSE, scale. = FALSE, retx = TRUE)
+    # run LDA on data
+    ldaOutput <- lda(inputData,outputCol)
+    # at this point if you can project lda as y axis and pca as x axis
+    # but we want all variables to form an outer circle around the data points
+    # in order to do that, we get the angle of each data point and project them on a common radius circle
+    y <- ldaOutput$scaling
+    x <- -1 * pcaOutput$rotation[,1]
+    output <- data.frame(x,y)
+    return(output)
+  }
+  
+  # function that will get the different colors that will be selected based on input for the intervention view
+  getIntColors <- function(combinedCoordinates){
+    colorTypes <- combinedCoordinates[,4]
+    uniqueColors <- unique(colorTypes)
+    if(("Low Risk" %in% uniqueColors) && ("High Risk" %in% uniqueColors) && ("Feature" %in% uniqueColors) && ("Monitored Feature" %in% uniqueColors)){
+      output <-  "['#819FF7','#FE642E','#58FA82','#FF69B4']"
+    }
+    else if(("Low Risk" %in% uniqueColors) && ("High Risk" %in% uniqueColors) && ("Feature" %in% uniqueColors)){
+      output <-  "['#819FF7','#FE642E','#58FA82']"
+    }
+    else if(("Low Risk" %in% uniqueColors) && ("Monitored Feature" %in% uniqueColors) && ("Feature" %in% uniqueColors)){
+      output <-  "['#819FF7','#58FA82','#FF69B4']"
+    }
+    else if(("Monitored Feature" %in% uniqueColors) && ("High Risk" %in% uniqueColors) && ("Feature" %in% uniqueColors)){
+      output <-  "['#819FF7','#FE642E','#FF69B4']"
+    }
+    else if(("Low Risk" %in% uniqueColors) && ("Feature" %in% uniqueColors)){
+      output <-  "['#819FF7','#58FA82']"
+    }
+    else if(("High Risk" %in% uniqueColors) && ("Feature" %in% uniqueColors)){
+      output <-  "['#819FF7','#FE642E']"
+    }
+  }
+  
+  getClusterColors <- function(patientCoordinates){
+    colorTypes <- patientCoordinates[,4]
+    uniqueColors <- unique(colorTypes)
+    if(("Low Risk" %in% uniqueColors) && ("High Risk" %in% uniqueColors)){
+      output <-  "['#FE642E','#58FA82']"
+    }
+    else if(("Low Risk" %in% uniqueColors)){
+      output <-  "['#58FA82']"
+    }
+    else{ 
+      output <-  "['#FE642E']"
+    }
+  }
+  
 }
